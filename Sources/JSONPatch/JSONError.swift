@@ -9,6 +9,8 @@
 import Foundation
 
 enum JSONError: Error {
+    case invalidObjectType
     case invalidPointerSyntax
     case referencesNonexistentValue
+    case patchTestFailed(path: String, expected: Any, found: Any?)
 }

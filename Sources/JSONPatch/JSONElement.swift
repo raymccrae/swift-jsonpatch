@@ -8,7 +8,7 @@
 
 import Foundation
 
-public enum JSONElement {
+enum JSONElement {
     case object(value: NSDictionary)
     case mutableObject(value: NSMutableDictionary)
     case array(value: NSArray)
@@ -48,7 +48,7 @@ extension JSONElement {
         }
     }
 
-    public init?(any: Any) {
+    init(any: Any) throws {
         switch any {
         case is NSMutableDictionary:
             self = .mutableObject(value: any as! NSMutableDictionary)
@@ -65,11 +65,22 @@ extension JSONElement {
         case is NSNull:
             self = .null
         default:
-            return nil
+            throw JSONError.invalidObjectType
         }
     }
 
-    mutating func makeMutable() {
+    private func copy() -> JSONElement {
+        let obj = rawValue as! NSObject
+        let objCopy: Any
+        if isMutable {
+            objCopy = obj.mutableCopy()
+        } else {
+            objCopy = obj.copy()
+        }
+        return try! JSONElement(any: objCopy)
+    }
+
+    private mutating func makeMutable() {
         switch self {
         case .object(let dictionary):
             let mutable = NSMutableDictionary(dictionary: dictionary)
@@ -85,7 +96,7 @@ extension JSONElement {
         }
     }
 
-    mutating func makePathMutable(_ pointer: JSONPointer) throws -> JSONElement {
+    private mutating func makePathMutable(_ pointer: JSONPointer) throws -> JSONElement {
 
         if !self.isMutable {
             self.makeMutable()
@@ -107,20 +118,18 @@ extension JSONElement {
     private func value(for component: String) throws -> JSONElement {
         switch self {
         case .object(let dictionary), .mutableObject(let dictionary as NSDictionary):
-            guard
-                let property = dictionary[component],
-                let child = JSONElement(any: property) else {
-                    throw JSONError.referencesNonexistentValue
+            guard let property = dictionary[component] else {
+                throw JSONError.referencesNonexistentValue
             }
+            let child = try JSONElement(any: property)
             return child
 
         case .array(let array) where component == "-",
              .mutableArray(let array as NSArray) where component == "-":
-            guard
-                let lastElement = array.lastObject,
-                let child = JSONElement(any: lastElement) else {
-                    throw JSONError.referencesNonexistentValue
+            guard let lastElement = array.lastObject else {
+                throw JSONError.referencesNonexistentValue
             }
+            let child = try JSONElement(any: lastElement)
             return child
 
         case .array(let array), .mutableArray(let array as NSArray):
@@ -131,7 +140,7 @@ extension JSONElement {
 
             }
             let element = array[index]
-            guard let child = JSONElement(any: element) else { throw JSONError.referencesNonexistentValue }
+            let child = try JSONElement(any: element)
             return child
 
         case .string, .number, .null:
@@ -139,7 +148,7 @@ extension JSONElement {
         }
     }
 
-    mutating func setValue(_ value: JSONElement, component: String) throws {
+    private mutating func setValue(_ value: JSONElement, component: String) throws {
         switch self {
         case .mutableObject(let dictionary):
             dictionary[component] = value.rawValue
@@ -160,40 +169,36 @@ extension JSONElement {
         }
     }
 
-    public func evaluate(pointer: JSONPointer) throws -> JSONElement {
+    private mutating func removeValue(component: String) throws {
+        switch self {
+        case .mutableObject(let dictionary):
+            dictionary.removeObject(forKey: component)
+        case .mutableArray(let array):
+            if component == "-" {
+                array.removeLastObject()
+            } else {
+                guard
+                    let index = Int(component),
+                    0..<array.count ~= index else {
+                        throw JSONError.referencesNonexistentValue
+
+                }
+                array.removeObject(at: index)
+            }
+        default:
+            break
+        }
+    }
+
+    func evaluate(pointer: JSONPointer) throws -> JSONElement {
         var json: JSONElement = self
         for component in pointer.components {
-            switch json {
-            case .object(let value):
-                guard
-                    let property = value[component],
-                    let nextJSON = JSONElement(any: property) else {
-                        throw JSONError.referencesNonexistentValue
-                }
-                json = nextJSON
-
-            case .array(let value) where component == "-":
-                guard
-                    let lastElement = value.lastObject,
-                    let nextJSON = JSONElement(any: lastElement) else {
-                        throw JSONError.referencesNonexistentValue
-                }
-                json = nextJSON
-
-            case .array(let value):
-                guard let index = Int(component) else { throw JSONError.referencesNonexistentValue }
-                let element = value[index]
-                guard let nextJSON = JSONElement(any: element) else { throw JSONError.referencesNonexistentValue }
-                json = nextJSON
-
-            default:
-                throw JSONError.referencesNonexistentValue
-            }
+            json = try json.value(for: component)
         }
         return json
     }
 
-    public mutating func add(value: JSONElement, to pointer: JSONPointer) throws {
+    mutating func add(value: JSONElement, to pointer: JSONPointer) throws {
         guard let parent = pointer.parent else {
             self = value
             return
@@ -203,11 +208,99 @@ extension JSONElement {
         try parentElement.setValue(value, component: pointer.components.last!)
     }
 
+    mutating func remove(at pointer: JSONPointer) throws {
+        guard let parent = pointer.parent else {
+            self = .null
+            return
+        }
+
+        var parentElement = try makePathMutable(parent)
+        try parentElement.removeValue(component: pointer.components.last!)
+    }
+
+    mutating func replace(value: JSONElement, to pointer: JSONPointer) throws {
+        guard let parent = pointer.parent else {
+            self = value
+            return
+        }
+
+        var parentElement = try makePathMutable(parent)
+        _ = try parentElement.value(for: pointer.components.last!)
+        try parentElement.setValue(value, component: pointer.components.last!)
+    }
+
+    mutating func move(from: JSONPointer, to: JSONPointer) throws {
+        guard let toParent = to.parent else {
+            self = try evaluate(pointer: from)
+            return
+        }
+
+        guard let fromParent = from.parent else {
+            throw JSONError.referencesNonexistentValue
+        }
+
+        var fromParentElement = try  makePathMutable(fromParent)
+        var toParentElement = try makePathMutable(toParent)
+        let value = try fromParentElement.value(for: from.components.last!)
+        try fromParentElement.removeValue(component: from.components.last!)
+        try toParentElement.setValue(value, component: to.components.last!)
+    }
+
+    mutating func copy(from: JSONPointer, to: JSONPointer) throws {
+        guard let toParent = to.parent else {
+            self = try evaluate(pointer: from)
+            return
+        }
+
+        guard let fromParent = from.parent else {
+            throw JSONError.referencesNonexistentValue
+        }
+
+        var fromParentElement = try  makePathMutable(fromParent)
+        var toParentElement = try makePathMutable(toParent)
+        let value = try fromParentElement.value(for: from.components.last!)
+        let valueCopy = value.copy()
+        try fromParentElement.removeValue(component: from.components.last!)
+        try toParentElement.setValue(valueCopy, component: to.components.last!)
+    }
+
+    func test(value: JSONElement, at pointer: JSONPointer) throws {
+        do {
+            let found = try evaluate(pointer: pointer)
+            if found != value {
+                throw JSONError.patchTestFailed(path: pointer.string,
+                                                expected: value.rawValue,
+                                                found: found.rawValue)
+            }
+        } catch {
+            throw JSONError.patchTestFailed(path: pointer.string,
+                                            expected: value.rawValue,
+                                            found: nil)
+        }
+    }
+
+    mutating func apply(_ operation: JSONPatch.Operation) throws {
+        switch operation {
+        case let .add(path, value):
+            try add(value: try JSONElement(any: value), to: path)
+        case let .remove(path):
+            try remove(at: path)
+        case let .replace(path, value):
+            try replace(value: try JSONElement(any: value), to: path)
+        case let .move(from, path):
+            try move(from: from, to: path)
+        case let .copy(from, path):
+            try copy(from: from, to: path)
+        case let .test(path, value):
+            try test(value: try JSONElement(any: value), at: path)
+        }
+    }
+
 }
 
 extension JSONElement: Equatable {
 
-    public static func == (lhs: JSONElement, rhs: JSONElement) -> Bool {
+    static func == (lhs: JSONElement, rhs: JSONElement) -> Bool {
         switch (lhs, rhs) {
         case (.object(let lobj), .object(let robj)):
             return lobj.isEqual(robj)

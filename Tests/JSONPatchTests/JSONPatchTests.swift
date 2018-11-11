@@ -37,10 +37,7 @@ class JSONPatchTests: XCTestCase {
         """
 
         let jsonObject = try JSONSerialization.jsonObject(with: Data(sample.utf8), options: [])
-        guard let json = JSONElement(any: jsonObject) else {
-            XCTFail()
-            return
-        }
+        let json = try JSONElement(any: jsonObject)
 
         XCTAssertEqual(evaluate(path: "", on: json) , json)
         XCTAssertEqual(evaluate(path: "/foo", on: json) , .array(value: ["bar", "baz"]))
@@ -65,10 +62,7 @@ class JSONPatchTests: XCTestCase {
         """
 
         let jsonObject = try JSONSerialization.jsonObject(with: Data(sample.utf8), options: [])
-        guard var json = JSONElement(any: jsonObject) else {
-            XCTFail()
-            return
-        }
+        var json = try JSONElement(any: jsonObject)
 
         let ptr = try JSONPointer(string: "/z/-")
         try json.add(value: .number(value: NSNumber(value: 4)), to: ptr)
