@@ -19,11 +19,17 @@ extension JSONPointer {
 
     var parent: JSONPointer? {
         guard
-            components.count > 1,
+            components.count > 0,
+            string != "/",
             let index = string.lastIndex(of: "/") else {
             return nil
         }
-        return try? JSONPointer(string: String(string[..<index]))
+
+        if index == string.startIndex {
+            return JSONPointer(string: "/", components: [""])
+        } else {
+            return try? JSONPointer(string: String(string[..<index]))
+        }
     }
 
     public init(string: String) throws {
