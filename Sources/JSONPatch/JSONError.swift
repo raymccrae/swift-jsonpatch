@@ -8,7 +8,7 @@
 
 import Foundation
 
-enum JSONError: Error {
+public enum JSONError: Error {
     case invalidObjectType
     case invalidPointerSyntax
     case referencesNonexistentValue

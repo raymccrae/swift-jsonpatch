@@ -11,6 +11,8 @@ import Foundation
 /// Implementation of IETF JSON Patch (RFC6902).
 public class JSONPatch {
 
+    /// A representation of the supported operations json-patch.
+    /// (see [RFC6902], Section 4)
     public enum Operation {
         case add(path: JSONPointer, value: Any)
         case remove(path: JSONPointer)
@@ -20,6 +22,7 @@ public class JSONPatch {
         case test(path: JSONPointer, value: Any)
     }
 
+    /// An array of json-patch operations.
     public let operations: [JSONPatch.Operation]
 
     public init(operations: [JSONPatch.Operation]) {
@@ -37,11 +40,7 @@ public class JSONPatch {
     }
 
     public func apply(to jsonObject: Any) throws -> Any {
-        var json = try JSONElement(any: jsonObject)
-        for operation in operations {
-            try json.apply(operation)
-        }
-        return json.rawValue
+        return try operations.reduce(into: try JSONElement(any: jsonObject)) { try $0.apply($1) }.rawValue
     }
 
     public func apply(to data: Data, options: JSONSerialization.WritingOptions = []) throws -> Data {
@@ -56,6 +55,9 @@ public class JSONPatch {
 }
 
 extension JSONPatch.Operation {
+    /// Initialize a json-operation from a JSON Object representation.
+    /// If the operation is not recogized or is missing a required field
+    /// then nil is returned.
     public init?(jsonObject: NSDictionary) {
         guard let op = jsonObject["op"] as? String else {
             return nil

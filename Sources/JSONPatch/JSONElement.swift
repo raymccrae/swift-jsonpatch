@@ -72,6 +72,9 @@ extension JSONElement {
         }
     }
 
+    /// Creates a new JSONElement with a copied raw value of the reciever.
+    ///
+    /// - Returns: A JSONElement representing a copy of the reciever.
     private func copy() -> JSONElement {
         let obj = rawValue as! NSObject
         let objCopy: Any
@@ -222,6 +225,11 @@ extension JSONElement {
         return try pointer.components.reduce(self, { return try $0.value(for: $1) })
     }
 
+    /// Adds the value to the JSON structure pointed to by the JSON Pointer.
+    ///
+    /// - Parameters:
+    ///   - value: A JSON Element holding a reference to the value to add.
+    ///   - pointer: A JSON Pointer of the location to insert the value.
     mutating func add(value: JSONElement, to pointer: JSONPointer) throws {
         guard let parent = pointer.parent else {
             self = value
@@ -232,6 +240,10 @@ extension JSONElement {
         try parentElement.setValue(value, component: pointer.components.last!, replace: false)
     }
 
+    /// Removes a value from a JSON structure pointed to by the JSON Pointer.
+    ///
+    /// - Parameters:
+    ///   - pointer: A JSON Pointer of the location of the value to remove.
     mutating func remove(at pointer: JSONPointer) throws {
         guard let parent = pointer.parent else {
             self = .null
@@ -242,6 +254,13 @@ extension JSONElement {
         try parentElement.removeValue(component: pointer.components.last!)
     }
 
+    /// Replaces a value at the location pointed to by the JSON Pointer with
+    /// the given value. There must be an existing value to replace for this
+    /// operation to be successful.
+    ///
+    /// - Parameters:
+    ///   - value: A JSON Element holding a reference to the value to add.
+    ///   - pointer: A JSON Pointer of the location of the value to replace.
     mutating func replace(value: JSONElement, to pointer: JSONPointer) throws {
         guard let parent = pointer.parent else {
             self = value
@@ -253,6 +272,11 @@ extension JSONElement {
         try parentElement.setValue(value, component: pointer.components.last!, replace: true)
     }
 
+    /// Moves a value at the from location to a new location within the JSON Structure.
+    ///
+    /// - Parameters:
+    ///   - from: The location of the JSON element to move.
+    ///   - to: The location to move the value to.
     mutating func move(from: JSONPointer, to: JSONPointer) throws {
         guard let toParent = to.parent else {
             self = try evaluate(pointer: from)
@@ -270,6 +294,11 @@ extension JSONElement {
         try toParentElement.setValue(value, component: to.components.last!, replace: false)
     }
 
+    /// Copies a JSON element within the JSON structure to a new location.
+    ///
+    /// - Parameters:
+    ///   - from: The location of the value to copy.
+    ///   - to: The location to insert the new value.
     mutating func copy(from: JSONPointer, to: JSONPointer) throws {
         guard let toParent = to.parent else {
             self = try evaluate(pointer: from)
@@ -280,13 +309,18 @@ extension JSONElement {
             throw JSONError.referencesNonexistentValue
         }
 
-        var fromParentElement = try  makePathMutable(fromParent)
+        let fromParentElement = try makePathMutable(fromParent)
         var toParentElement = try makePathMutable(toParent)
         let value = try fromParentElement.value(for: from.components.last!)
         let valueCopy = value.copy()
         try toParentElement.setValue(valueCopy, component: to.components.last!, replace: false)
     }
 
+    /// Tests a value within the JSON structure against the given value.
+    ///
+    /// - Parameters:
+    ///   - value: The expected value.
+    ///   - pointer: The location of the value to test.
     func test(value: JSONElement, at pointer: JSONPointer) throws {
         do {
             let found = try evaluate(pointer: pointer)
@@ -302,6 +336,10 @@ extension JSONElement {
         }
     }
 
+    /// Applies a json-patch operation to the reciever.
+    ///
+    /// - Parameters:
+    ///   - operation: The operation to apply.
     mutating func apply(_ operation: JSONPatch.Operation) throws {
         switch operation {
         case let .add(path, value):
@@ -336,26 +374,6 @@ extension JSONElement: Equatable {
                 return false
         }
         return lobj.isEqual(robj)
-//        switch (lhs, rhs) {
-//        case (.object(let lobj), .object(let robj)),
-//             (.object(let lobj), .mutableObject(let robj as NSDictionary)),
-//             (.mutableObject(let lobj as NSDictionary), .object(let robj)),
-//             (.mutableObject(let lobj as NSDictionary), .mutableObject(let robj as NSDictionary)):
-//            return lobj.isEqual(robj)
-//        case (.array(let larr), .array(let rarr)),
-//             (.array(let larr), .mutableArray(let rarr as NSArray)),
-//             (.mutableArray(let larr as NSArray), .array(let rarr)),
-//             (.mutableArray(let larr as NSArray), .mutableArray(let rarr as NSArray)):
-//            return larr.isEqual(rarr)
-//        case (.string(let lstr), .string(let rstr)):
-//            return lstr.isEqual(rstr)
-//        case (.number(let lnum), .number(let rnum)):
-//            return lnum.isEqual(to: rnum)
-//        case (.null, .null):
-//            return true
-//        default:
-//            return false
-//        }
     }
 
 }
