@@ -18,10 +18,11 @@ class JSONPointerTests: XCTestCase {
     }
 
     func testParent() {
-        XCTAssertNil(parent("/"))
+        XCTAssertNil(parent(""))
         XCTAssertEqual(parent("/a"), "/")
         XCTAssertEqual(parent("/a/b"), "/a")
         XCTAssertEqual(parent("/a/b/c"), "/a/b")
+        XCTAssertEqual(parent("/"), "")
         XCTAssertEqual(parent("//"), "/")
         XCTAssertEqual(parent("///"), "//")
     }

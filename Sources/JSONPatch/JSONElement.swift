@@ -100,9 +100,12 @@ extension JSONElement {
     }
 
     private mutating func makePathMutable(_ pointer: JSONPointer) throws -> JSONElement {
-
         if !self.isMutable {
             self.makeMutable()
+        }
+
+        guard pointer.string != "/" else {
+            return self
         }
 
         var element = self
@@ -110,7 +113,7 @@ extension JSONElement {
             var child = try element.value(for: component)
             if !child.isMutable {
                 child.makeMutable()
-                try element.setValue(child, component: component)
+                try element.setValue(child, component: component, replace: true)
             }
             element = child
         }
@@ -160,21 +163,29 @@ extension JSONElement {
         }
     }
 
-    private mutating func setValue(_ value: JSONElement, component: String) throws {
+    private mutating func setValue(_ value: JSONElement, component: String, replace: Bool) throws {
         switch self {
         case .mutableObject(let dictionary):
             dictionary[component] = value.rawValue
         case .mutableArray(let array):
             if component == "-" {
-                array.add(value.rawValue)
+                if replace && array.count > 0 {
+                    array.replaceObject(at: array.count - 1, with: value.rawValue)
+                } else {
+                    array.add(value.rawValue)
+                }
             } else {
                 guard
                     let index = Int(component),
-                    0..<array.count ~= index else {
+                    0...array.count ~= index else {
                         throw JSONError.referencesNonexistentValue
 
                 }
-                array.insert(value.rawValue, at: index)
+                if replace {
+                    array.replaceObject(at: index, with: value.rawValue)
+                } else {
+                    array.insert(value.rawValue, at: index)
+                }
             }
         default:
             break
@@ -218,7 +229,7 @@ extension JSONElement {
         }
 
         var parentElement = try makePathMutable(parent)
-        try parentElement.setValue(value, component: pointer.components.last!)
+        try parentElement.setValue(value, component: pointer.components.last!, replace: false)
     }
 
     mutating func remove(at pointer: JSONPointer) throws {
@@ -239,7 +250,7 @@ extension JSONElement {
 
         var parentElement = try makePathMutable(parent)
         _ = try parentElement.value(for: pointer.components.last!)
-        try parentElement.setValue(value, component: pointer.components.last!)
+        try parentElement.setValue(value, component: pointer.components.last!, replace: true)
     }
 
     mutating func move(from: JSONPointer, to: JSONPointer) throws {
@@ -256,7 +267,7 @@ extension JSONElement {
         var toParentElement = try makePathMutable(toParent)
         let value = try fromParentElement.value(for: from.components.last!)
         try fromParentElement.removeValue(component: from.components.last!)
-        try toParentElement.setValue(value, component: to.components.last!)
+        try toParentElement.setValue(value, component: to.components.last!, replace: false)
     }
 
     mutating func copy(from: JSONPointer, to: JSONPointer) throws {
@@ -273,8 +284,7 @@ extension JSONElement {
         var toParentElement = try makePathMutable(toParent)
         let value = try fromParentElement.value(for: from.components.last!)
         let valueCopy = value.copy()
-        try fromParentElement.removeValue(component: from.components.last!)
-        try toParentElement.setValue(valueCopy, component: to.components.last!)
+        try toParentElement.setValue(valueCopy, component: to.components.last!, replace: false)
     }
 
     func test(value: JSONElement, at pointer: JSONPointer) throws {
