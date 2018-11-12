@@ -8,6 +8,7 @@
 
 import Foundation
 
+/// JSON Element holds a reference an element of the parsed JSON structure.
 enum JSONElement {
     case object(value: NSDictionary)
     case mutableObject(value: NSMutableDictionary)
@@ -20,6 +21,7 @@ enum JSONElement {
 
 extension JSONElement {
 
+    /// The raw value of the underlying JSON representation.
     var rawValue: Any {
         switch self {
         case .object(let value):
@@ -39,6 +41,7 @@ extension JSONElement {
         }
     }
 
+    /// Indicates if the receiver is a mutable container (dictionary or array).
     var isMutable: Bool {
         switch self {
         case .mutableObject, .mutableArray:
@@ -115,6 +118,15 @@ extension JSONElement {
         return element
     }
 
+    /// This method is used to evalute a single component of a JSON Pointer.
+    /// If the receiver represents a container (dictionary or array) with the JSON
+    /// structure, then this method will get the value within the container referenced
+    /// by the component of the JSON Pointer. If the receiver does not represent a
+    /// container then an error is thrown.
+    ///
+    /// - Parameters:
+    ///   - component: A single component of a JSON Pointer to evaluate.
+    /// - Returns: The referenced value.
     private func value(for component: String) throws -> JSONElement {
         switch self {
         case .object(let dictionary), .mutableObject(let dictionary as NSDictionary):
@@ -190,12 +202,13 @@ extension JSONElement {
         }
     }
 
+    /// Evaluates a JSON Pointer relative to the receiver JSON Element.
+    ///
+    /// - Parameters:
+    ///   - pointer: The JSON Pointer to evaluate.
+    /// - Returns: The JSON Element pointed to by the JSON Pointer
     func evaluate(pointer: JSONPointer) throws -> JSONElement {
-        var json: JSONElement = self
-        for component in pointer.components {
-            json = try json.value(for: component)
-        }
-        return json
+        return try pointer.components.reduce(self, { return try $0.value(for: $1) })
     }
 
     mutating func add(value: JSONElement, to pointer: JSONPointer) throws {
@@ -300,21 +313,39 @@ extension JSONElement {
 
 extension JSONElement: Equatable {
 
+    /// Tests if two JSON Elements are structurally.
+    ///
+    /// - Parameters:
+    ///   - lhs: Left-hand side of the equality test.
+    ///   - rhs: Right-hand side of the equality test.
+    /// - Returns: true if lhs and rhs are structurally, otherwise false.
     static func == (lhs: JSONElement, rhs: JSONElement) -> Bool {
-        switch (lhs, rhs) {
-        case (.object(let lobj), .object(let robj)):
-            return lobj.isEqual(robj)
-        case (.array(let larr), .array(let rarr)):
-            return larr.isEqual(rarr)
-        case (.string(let lstr), .string(let rstr)):
-            return lstr.isEqual(rstr)
-        case (.number(let lnum), .number(let rnum)):
-            return lnum.isEqual(to: rnum)
-        case (.null, .null):
-            return true
-        default:
-            return false
+        guard
+            let lobj = lhs.rawValue as? NSObject,
+            let robj = rhs.rawValue as? NSObject else {
+                return false
         }
+        return lobj.isEqual(robj)
+//        switch (lhs, rhs) {
+//        case (.object(let lobj), .object(let robj)),
+//             (.object(let lobj), .mutableObject(let robj as NSDictionary)),
+//             (.mutableObject(let lobj as NSDictionary), .object(let robj)),
+//             (.mutableObject(let lobj as NSDictionary), .mutableObject(let robj as NSDictionary)):
+//            return lobj.isEqual(robj)
+//        case (.array(let larr), .array(let rarr)),
+//             (.array(let larr), .mutableArray(let rarr as NSArray)),
+//             (.mutableArray(let larr as NSArray), .array(let rarr)),
+//             (.mutableArray(let larr as NSArray), .mutableArray(let rarr as NSArray)):
+//            return larr.isEqual(rarr)
+//        case (.string(let lstr), .string(let rstr)):
+//            return lstr.isEqual(rstr)
+//        case (.number(let lnum), .number(let rnum)):
+//            return lnum.isEqual(to: rnum)
+//        case (.null, .null):
+//            return true
+//        default:
+//            return false
+//        }
     }
 
 }
