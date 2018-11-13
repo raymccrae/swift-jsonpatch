@@ -16,6 +16,8 @@
 		4D22EB37219879EF00729769 /* libJSONPatch.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 4D22EB24219878DC00729769 /* libJSONPatch.a */; };
 		4D7011A1219A0FED005EC1B2 /* tests.json in Resources */ = {isa = PBXBuildFile; fileRef = 4D7011A0219A0FED005EC1B2 /* tests.json */; };
 		4D7011A3219A1E43005EC1B2 /* spec_tests.json in Resources */ = {isa = PBXBuildFile; fileRef = 4D7011A2219A1E43005EC1B2 /* spec_tests.json */; };
+		4DDA51EB219AAD8D00BA7704 /* NSArray+DeepCopy.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4DDA51EA219AAD8D00BA7704 /* NSArray+DeepCopy.swift */; };
+		4DDA51ED219AADE000BA7704 /* NSDictionary+DeepCopy.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4DDA51EC219AADE000BA7704 /* NSDictionary+DeepCopy.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -52,6 +54,8 @@
 		4D22EB36219879EF00729769 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		4D7011A0219A0FED005EC1B2 /* tests.json */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.json; path = tests.json; sourceTree = "<group>"; };
 		4D7011A2219A1E43005EC1B2 /* spec_tests.json */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.json; path = spec_tests.json; sourceTree = "<group>"; };
+		4DDA51EA219AAD8D00BA7704 /* NSArray+DeepCopy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "NSArray+DeepCopy.swift"; sourceTree = "<group>"; };
+		4DDA51EC219AADE000BA7704 /* NSDictionary+DeepCopy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "NSDictionary+DeepCopy.swift"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -98,6 +102,8 @@
 				4D0AF30121987BA100E7F86B /* JSONError.swift */,
 				4D22EB27219878DC00729769 /* JSONPatch.swift */,
 				4D0AF30521987C8900E7F86B /* JSONPointer.swift */,
+				4DDA51EA219AAD8D00BA7704 /* NSArray+DeepCopy.swift */,
+				4DDA51EC219AADE000BA7704 /* NSDictionary+DeepCopy.swift */,
 			);
 			name = JSONPatch;
 			path = Sources/JSONPatch;
@@ -208,6 +214,8 @@
 			buildActionMask = 2147483647;
 			files = (
 				4D0AF30221987BA100E7F86B /* JSONError.swift in Sources */,
+				4DDA51ED219AADE000BA7704 /* NSDictionary+DeepCopy.swift in Sources */,
+				4DDA51EB219AAD8D00BA7704 /* NSArray+DeepCopy.swift in Sources */,
 				4D0AF30421987C0A00E7F86B /* JSONElement.swift in Sources */,
 				4D22EB28219878DC00729769 /* JSONPatch.swift in Sources */,
 				4D0AF30621987C8900E7F86B /* JSONPointer.swift in Sources */,

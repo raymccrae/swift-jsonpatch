@@ -53,18 +53,18 @@ extension JSONElement {
 
     init(any: Any) throws {
         switch any {
-        case is NSMutableDictionary:
-            self = .mutableObject(value: any as! NSMutableDictionary)
-        case is NSDictionary:
-            self = .object(value: any as! NSDictionary)
-        case is NSMutableArray:
-            self = .mutableArray(value: any as! NSMutableArray)
-        case is NSArray:
-            self = .array(value: any as! NSArray)
-        case is NSString:
-            self = .string(value: any as! NSString)
-        case is NSNumber:
-            self = .number(value: any as! NSNumber)
+        case let dict as NSMutableDictionary:
+            self = .mutableObject(value: dict)
+        case let dict as NSDictionary:
+            self = .object(value: dict)
+        case let array as NSMutableArray:
+            self = .mutableArray(value: array)
+        case let array as NSArray:
+            self = .array(value: array)
+        case let str as NSString:
+            self = .string(value: str)
+        case let num as NSNumber:
+            self = .number(value: num)
         case is NSNull:
             self = .null
         default:
@@ -76,14 +76,18 @@ extension JSONElement {
     ///
     /// - Returns: A JSONElement representing a copy of the reciever.
     private func copy() -> JSONElement {
-        let obj = rawValue as! NSObject
-        let objCopy: Any
-        if isMutable {
-            objCopy = obj.mutableCopy()
-        } else {
-            objCopy = obj.copy()
+        switch rawValue {
+        case let dict as NSDictionary:
+            return try! JSONElement(any: dict.deepMutableCopy())
+        case let arr as NSArray:
+            return try! JSONElement(any: arr.deepMutableCopy())
+        case let null as NSNull:
+            return try! JSONElement(any: null)
+        case let obj as NSObject:
+            return try! JSONElement(any: obj.mutableCopy())
+        default:
+            fatalError("JSONElement contained non-NSObject")
         }
-        return try! JSONElement(any: objCopy)
     }
 
     private mutating func makeMutable() {
