@@ -23,6 +23,18 @@
             {"op": "replace", "path": "/2/a/b/c", "value": "f"},
         ],
         "expected": [{"a": {"b": {"c": null}}}, {"a": {"b": {"c": "e"}}}, {"a": {"b": {"c": "f"}}}]
+    },
+
+    { "comment": "Avoid recursive copy",
+      "doc": {"a": {"b": []}},
+      "patch": [{"op": "copy", "from": "/a", "path": "/a/b/-"}],
+      "expected": {"a": {"b": [{"b": []}]}}
+    },
+
+    { "comment": "Prevent recursive move",
+      "doc": {"a": {"b": []}},
+      "patch": [{"op": "move", "from": "/a", "path": "/a/b/-"}],
+      "error": "Unable to move element inside itself"
     }
 
 ]
