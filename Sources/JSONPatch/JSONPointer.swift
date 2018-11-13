@@ -30,7 +30,7 @@ public struct JSONPointer {
     public let components: [String]
 
     /// An internal initalizer for the JSONPointer to force public access to use init(string:).
-    init(string: String, components: [String]) {
+    private init(string: String, components: [String]) {
         self.string = string
         self.components = components
     }
@@ -40,7 +40,7 @@ extension JSONPointer {
 
     /// A JSON Pointer to the container of the element of the reciever, or nil if the reciever
     /// references the root element of the whole JSON document.
-    var parent: JSONPointer? {
+    public var parent: JSONPointer? {
         guard
             components.count > 0,
             let index = string.lastIndex(of: "/") else {
@@ -57,10 +57,29 @@ extension JSONPointer {
         }
     }
 
+    public var isWholeDocument: Bool {
+        return components.isEmpty
+    }
+
+    public var fragment: String? {
+        guard let s = string.addingPercentEncoding(withAllowedCharacters: .urlFragmentAllowed) else {
+            return nil
+        }
+        return "#\(s)"
+    }
+
     /// Initializer for JSONPointer
     public init(string: String) throws {
         guard !string.isEmpty else {
             self.init(string: string, components: [])
+            return
+        }
+        guard !string.hasPrefix("#") else {
+            let index = string.index(after: string.startIndex)
+            guard let unescaped = string[index...].removingPercentEncoding else {
+                throw JSONError.invalidPointerSyntax
+            }
+            try self.init(string: unescaped)
             return
         }
         guard string.hasPrefix("/") else {
@@ -81,6 +100,13 @@ extension JSONPointer {
         var value = escaped
         value = value.replacingOccurrences(of: "~1", with: "/")
         value = value.replacingOccurrences(of: "~0", with: "~")
+        return value
+    }
+
+    public static func escape(_ unescaped: String) -> String {
+        var value = unescaped
+        value = value.replacingOccurrences(of: "~", with: "~0")
+        value = value.replacingOccurrences(of: "/", with: "~1")
         return value
     }
 

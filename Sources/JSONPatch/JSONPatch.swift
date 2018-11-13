@@ -55,12 +55,14 @@ public class JSONPatch {
         return try operations.reduce(into: try JSONElement(any: jsonObject)) { try $0.apply($1) }.rawValue
     }
 
-    public func apply(to data: Data, options: JSONSerialization.WritingOptions = []) throws -> Data {
+    public func apply(to data: Data,
+                      readingOptions: JSONSerialization.ReadingOptions = [.mutableContainers],
+                      writingOptions: JSONSerialization.WritingOptions = []) throws -> Data {
         let jsonObject = try JSONSerialization.jsonObject(with: data,
-                                                          options: [.mutableContainers])
+                                                          options: readingOptions)
         let transformedObject = try apply(to: jsonObject)
         let transformedData = try JSONSerialization.data(withJSONObject: transformedObject,
-                                                         options: options)
+                                                         options: writingOptions)
         return transformedData
     }
 
@@ -130,4 +132,32 @@ extension JSONPatch.Operation {
             return nil
         }
     }
+}
+
+extension JSONPatch.Operation: Equatable {
+
+    public static func == (lhs: JSONPatch.Operation, rhs: JSONPatch.Operation) -> Bool {
+        switch (lhs, rhs) {
+        case let (.add(lpath, lvalue as NSObject), .add(rpath, rvalue as NSObject)),
+             let (.replace(lpath, lvalue as NSObject), .replace(rpath, rvalue as NSObject)),
+             let (.test(lpath, lvalue as NSObject), .test(rpath, rvalue as NSObject)):
+            return lpath == rpath && lvalue.isEqual(rvalue)
+        case let (.remove(lpath), .remove(rpath)):
+            return lpath == rpath
+        case let (.move(lfrom, lpath), .move(rfrom, rpath)),
+             let (.copy(lfrom, lpath), .copy(rfrom, rpath)):
+            return lfrom == rfrom && lpath == rpath
+        default:
+            return false
+        }
+    }
+
+}
+
+extension JSONPatch: Equatable {
+
+    public static func == (lhs: JSONPatch, rhs: JSONPatch) -> Bool {
+        return lhs.operations == rhs.operations
+    }
+
 }
