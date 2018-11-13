@@ -3,7 +3,7 @@
 //  JSONPatch
 //
 //  Created by Raymond Mccrae on 13/11/2018.
-//  Copyright © 2018 Raymond McCrae. All rights reserved.
+//  Copyright © 2018 Raymond McCrae.
 //
 //  Licensed under the Apache License, Version 2.0 (the "License");
 //  you may not use this file except in compliance with the License.
