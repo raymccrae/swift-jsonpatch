@@ -33,8 +33,6 @@ extension NSDictionary {
                 result[key] = dict.deepMutableCopy()
             case let str as NSMutableString:
                 result[key] = str
-//            case let null as NSNull:
-//                result[key] = null
             case let obj as NSObject:
                 result[key] = obj.copy()
             default:

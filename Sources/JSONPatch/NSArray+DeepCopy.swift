@@ -33,8 +33,6 @@ extension NSArray {
                 result.add(dict.deepMutableCopy())
             case let str as NSMutableString:
                 result.add(str.mutableCopy())
-//            case let null as NSNull:
-//                result.add(null)
             case let obj as NSObject:
                 result.add(obj.copy())
             default:
