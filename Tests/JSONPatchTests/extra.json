@@ -1,0 +1,28 @@
+[
+    { "comment": "Deep copy applied - Level 1",
+        "doc": [{"foo": "bar"}],
+        "patch": [{"op": "copy", "from": "/0", "path": "/1"}, {"op": "replace", "path": "/1/foo", "value": "baz"}],
+        "expected": [{"foo": "bar"}, {"foo": "baz"}]
+    },
+
+    { "comment": "Deep copy applied - Level 2",
+        "doc": [{"a": {"b": {"c": "d"}}}],
+        "patch": [{"op": "copy", "from": "/0", "path": "/1"},
+            {"op": "replace", "path": "/1/a/b/c", "value": "e"},
+            {"op": "copy", "from": "/1", "path": "/2"},
+            {"op": "replace", "path": "/2/a/b/c", "value": "f"},
+        ],
+        "expected": [{"a": {"b": {"c": "d"}}}, {"a": {"b": {"c": "e"}}}, {"a": {"b": {"c": "f"}}}]
+    },
+
+    { "comment": "Deep copy applied - Level 2",
+        "doc": [{"a": {"b": {"c": null}}}],
+        "patch": [{"op": "copy", "from": "/0", "path": "/1"},
+            {"op": "replace", "path": "/1/a/b/c", "value": "e"},
+            {"op": "copy", "from": "/1", "path": "/2"},
+            {"op": "replace", "path": "/2/a/b/c", "value": "f"},
+        ],
+        "expected": [{"a": {"b": {"c": null}}}, {"a": {"b": {"c": "e"}}}, {"a": {"b": {"c": "f"}}}]
+    }
+
+]

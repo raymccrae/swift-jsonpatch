@@ -111,6 +111,10 @@ class JSONPatchTests: XCTestCase {
         runJSONTestFile("spec_tests")
     }
 
+    func testJSONPatchExtra() {
+        runJSONTestFile("extra")
+    }
+
     func testAdd() throws {
         let sample = """
         {"foo": "bar"}
