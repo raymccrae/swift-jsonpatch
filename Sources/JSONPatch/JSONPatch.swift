@@ -20,8 +20,14 @@
 
 import Foundation
 
-/// Implementation of IETF JSON Patch (RFC6902).
+/// Implementation of IETF JSON Patch (RFC6902). JSON Patch is a format
+/// for expressing a sequence of operations to apply to a target JSON document.
+/// This implementation works with the representions of JSON produced with
+/// JSONSerialization.
 public class JSONPatch {
+
+    /// The mimetype for json-patch
+    public static let mimetype = "application/json-patch+json"
 
     /// A representation of the supported operations json-patch.
     /// (see [RFC6902], Section 4)
@@ -34,13 +40,23 @@ public class JSONPatch {
         case test(path: JSONPointer, value: Any)
     }
 
-    /// An array of json-patch operations.
+    /// An array of json-patch operations that will be applied in sequence.
     public let operations: [JSONPatch.Operation]
 
+    /// Initializes a JSONPatch instance with an array of operations.
+    ///
+    /// - Parameters:
+    ///   - operations: An array of operations.
     public init(operations: [JSONPatch.Operation]) {
         self.operations = operations
     }
 
+    /// Initializes a JSONPatch instance from a JSON array (the result of using
+    /// JSONSerialization). The array should directly contain a list of json-patch
+    /// operations as NSDictionary representations.
+    ///
+    /// - Parameters:
+    ///   - jsonArray: An array obtained from JSONSerialization containing json-patch operations.
     public convenience init(jsonArray: NSArray) throws {
         var operations: [JSONPatch.Operation] = []
         for (index, element) in (jsonArray as Array).enumerated() {
@@ -53,10 +69,44 @@ public class JSONPatch {
         self.init(operations: operations)
     }
 
+    /// Initializes a JSONPatch instance from JSON represention. This should be a
+    /// top-level array with the json-patch operations.
+    ///
+    /// - Parameters:
+    ///   - data: The json-patch document as data.
+    public convenience init(data: Data) throws {
+        let jsonObject = try JSONSerialization.jsonObject(with: data, options: [])
+        guard let jsonArray = jsonObject as? NSArray else {
+            throw JSONError.invalidPatchFormat
+        }
+        try self.init(jsonArray: jsonArray)
+    }
+
+
+    /// Applies a json-patch to a target json document. Operations are applied
+    /// sequentially in the order they appear in the operations array.
+    /// Each operation in the sequence is applied to the target document;
+    /// the resulting document becomes the target of the next operation.
+    /// Evaluation continues until all operations are successfully applied
+    /// or until an error condition is encountered.
+    ///
+    /// - Parameters:
+    ///   - jsonObject: The target json document to patch the patch to.
+    /// - Returns: A transformed json document with the patch applied.
     public func apply(to jsonObject: Any) throws -> Any {
         return try operations.reduce(into: try JSONElement(any: jsonObject)) { try $0.apply($1) }.rawValue
     }
 
+    /// Applies a json-patch to a target json document represented as data (see apply(to jsonObject:)
+    /// for more details. The given data will be parsed using JSONSerialization using the
+    /// reading options. If the patch was successfully applied with no errors, the result will be
+    /// serialized back to data with the writing options.
+    ///
+    /// - Parameters:
+    ///   - data: A data representation of the json document to apply the patch to.
+    ///   - readingOptions: The options given to JSONSerialization to parse the json data.
+    ///   - writingOptions: The options given to JSONSerialization to write the result to data.
+    /// - Returns: The transformed json document as data.
     public func apply(to data: Data,
                       readingOptions: JSONSerialization.ReadingOptions = [.mutableContainers],
                       writingOptions: JSONSerialization.WritingOptions = []) throws -> Data {
@@ -72,19 +122,13 @@ public class JSONPatch {
 
 extension JSONPatch.Operation {
 
-    private static func val<T>(_ jsonObject: NSDictionary,
-                            _ op: String,
-                            _ field: String,
-                            _ index: Int) throws -> T {
-        guard let value = jsonObject[field] as? T else {
-            throw JSONError.missingRequiredPatchField(op: op, index: index, field: field)
-        }
-        return value
-    }
-
     /// Initialize a json-operation from a JSON Object representation.
     /// If the operation is not recogized or is missing a required field
-    /// then nil is returned.
+    /// then an error is thrown. Unrecogized extra fields are ignored.
+    ///
+    /// - Parameters:
+    ///   - jsonObject: The json object representing the operation.
+    ///   - index: The index this operation occurs at within the json-patch document.
     public init(jsonObject: NSDictionary, index: Int = 0) throws {
         guard let op = jsonObject["op"] as? String else {
             throw JSONError.missingRequiredPatchField(op: "", index: index, field: "op")
@@ -126,10 +170,26 @@ extension JSONPatch.Operation {
             throw JSONError.unknownPatchOperation
         }
     }
+
+    private static func val<T>(_ jsonObject: NSDictionary,
+                               _ op: String,
+                               _ field: String,
+                               _ index: Int) throws -> T {
+        guard let value = jsonObject[field] as? T else {
+            throw JSONError.missingRequiredPatchField(op: op, index: index, field: field)
+        }
+        return value
+    }
 }
 
 extension JSONPatch.Operation: Equatable {
 
+    /// Tests the equality of two json-patch operations.
+    ///
+    /// - Parameters:
+    ///   - lhs: Left-hand side of the equality test.
+    ///   - rhs: Right-hand side of the equality test.
+    /// - Returns: true is the lhs is equal to the rhs.
     public static func == (lhs: JSONPatch.Operation, rhs: JSONPatch.Operation) -> Bool {
         switch (lhs, rhs) {
         case let (.add(lpath, lvalue as NSObject), .add(rpath, rvalue as NSObject)),
@@ -150,6 +210,12 @@ extension JSONPatch.Operation: Equatable {
 
 extension JSONPatch: Equatable {
 
+    /// Tests the equality of two json-patchs.
+    ///
+    /// - Parameters:
+    ///   - lhs: Left-hand side of the equality test.
+    ///   - rhs: Right-hand side of the equality test.
+    /// - Returns: true is the lhs is equal to the rhs.
     public static func == (lhs: JSONPatch, rhs: JSONPatch) -> Bool {
         return lhs.operations == rhs.operations
     }
