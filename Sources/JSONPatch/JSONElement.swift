@@ -384,6 +384,12 @@ extension JSONElement {
         }
     }
 
+    mutating func apply(patch: JSONPatch) throws {
+        for operation in patch.operations {
+            try apply(operation)
+        }
+    }
+
 }
 
 extension JSONElement: Equatable {
@@ -399,6 +405,42 @@ extension JSONElement: Equatable {
             return false
         }
         return lobj.isJSONEquals(to: rhs)
+    }
+
+}
+
+extension JSONSerialization {
+
+    /// Generate JSON data from a JSONElement using JSONSerialization. This method supports
+    /// top-level fragments (root elements that are not containers).
+    ///
+    /// - Parameters:
+    ///   - jsonElement: The top-level json element to generate data for.
+    ///   - options: The wripting options for generating the json data.
+    /// - Returns: A UTF-8 represention of the json document with the jsonElement as the root.
+    static func data(with jsonElement: JSONElement, options: WritingOptions = []) throws -> Data {
+        // JSONSerialization only supports writing top-level containers.
+        switch jsonElement {
+        case let .object(obj as NSObject),
+             let .mutableObject(obj as NSObject),
+             let .array(obj as NSObject),
+             let .mutableArray(obj as NSObject):
+            return try JSONSerialization.data(withJSONObject: obj, options: options)
+        default:
+            // If the element is not a container then wrap the element in an array and the
+            // return the sub-sequence of the result that represents the original element.
+            let array = [jsonElement.rawValue]
+            // We ignore the passed in writing options for this case, as it only effects
+            // containers and could cause indexes to shift.
+            let data = try JSONSerialization.data(withJSONObject: array, options: [])
+            guard let arrayEndRange = data.range(of: Data("]".utf8),
+                                                 options: [.backwards],
+                                                 in: nil) else {
+                                                    throw JSONError.invalidObjectType
+            }
+            let subdata = data.subdata(in: data.index(after: data.startIndex)..<arrayEndRange.startIndex)
+            return subdata
+        }
     }
 
 }

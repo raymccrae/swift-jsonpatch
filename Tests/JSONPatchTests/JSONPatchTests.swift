@@ -153,6 +153,17 @@ class JSONPatchTests: XCTestCase {
         XCTAssertNotEqual(oppa, oppb)
     }
 
+    func testTopLevelFragments() throws {
+        let ptr = try JSONPointer(string: "")
+        let doc = Data("3".utf8)
+        let op = JSONPatch.Operation.replace(path: ptr, value: false as NSNumber)
+        let patch = JSONPatch(operations: [op])
+        let result = try patch.apply(to: doc,
+                                 readingOptions: [.allowFragments],
+                                 writingOptions: [])
+        XCTAssertEqual(String(data: result, encoding: .utf8), "false")
+    }
+
 //    func testAdd() throws {
 //        let sample = """
 //        {"foo": "bar"}

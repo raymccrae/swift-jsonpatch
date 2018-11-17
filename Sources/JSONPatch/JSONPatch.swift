@@ -24,6 +24,8 @@ import Foundation
 /// for expressing a sequence of operations to apply to a target JSON document.
 /// This implementation works with the representions of JSON produced with
 /// JSONSerialization.
+///
+/// https://tools.ietf.org/html/rfc6902
 public class JSONPatch {
 
     /// The mimetype for json-patch
@@ -82,7 +84,6 @@ public class JSONPatch {
         try self.init(jsonArray: jsonArray)
     }
 
-
     /// Applies a json-patch to a target json document. Operations are applied
     /// sequentially in the order they appear in the operations array.
     /// Each operation in the sequence is applied to the target document;
@@ -94,7 +95,9 @@ public class JSONPatch {
     ///   - jsonObject: The target json document to patch the patch to.
     /// - Returns: A transformed json document with the patch applied.
     public func apply(to jsonObject: Any) throws -> Any {
-        return try operations.reduce(into: try JSONElement(any: jsonObject)) { try $0.apply($1) }.rawValue
+        var jsonDocument = try JSONElement(any: jsonObject)
+        try jsonDocument.apply(patch: self)
+        return jsonDocument.rawValue
     }
 
     /// Applies a json-patch to a target json document represented as data (see apply(to jsonObject:)
@@ -112,8 +115,9 @@ public class JSONPatch {
                       writingOptions: JSONSerialization.WritingOptions = []) throws -> Data {
         let jsonObject = try JSONSerialization.jsonObject(with: data,
                                                           options: readingOptions)
-        let transformedObject = try apply(to: jsonObject)
-        let transformedData = try JSONSerialization.data(withJSONObject: transformedObject,
+        var jsonElement = try JSONElement(any: jsonObject)
+        try jsonElement.apply(patch: self)
+        let transformedData = try JSONSerialization.data(with: jsonElement,
                                                          options: writingOptions)
         return transformedData
     }
