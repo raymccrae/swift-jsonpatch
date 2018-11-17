@@ -384,12 +384,10 @@ extension JSONElement: Equatable {
     ///   - rhs: Right-hand side of the equality test.
     /// - Returns: true if lhs and rhs are structurally, otherwise false.
     static func == (lhs: JSONElement, rhs: JSONElement) -> Bool {
-        guard
-            let lobj = lhs.rawValue as? NSObject,
-            let robj = rhs.rawValue as? NSObject else {
-                return false
+        guard let lobj = lhs.rawValue as? JSONEquatable else {
+            return false
         }
-        return lobj.isEqual(robj)
+        return lobj.isJSONEquals(to: rhs)
     }
 
 }
