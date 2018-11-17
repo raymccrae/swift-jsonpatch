@@ -192,10 +192,13 @@ extension JSONPatch.Operation: Equatable {
     /// - Returns: true is the lhs is equal to the rhs.
     public static func == (lhs: JSONPatch.Operation, rhs: JSONPatch.Operation) -> Bool {
         switch (lhs, rhs) {
-        case let (.add(lpath, lvalue as NSObject), .add(rpath, rvalue as NSObject)),
-             let (.replace(lpath, lvalue as NSObject), .replace(rpath, rvalue as NSObject)),
-             let (.test(lpath, lvalue as NSObject), .test(rpath, rvalue as NSObject)):
-            return lpath == rpath && lvalue.isEqual(rvalue)
+        case let (.add(lpath, lvalue as JSONEquatable), .add(rpath, rvalue as NSObject)),
+             let (.replace(lpath, lvalue as JSONEquatable), .replace(rpath, rvalue as NSObject)),
+             let (.test(lpath, lvalue as JSONEquatable), .test(rpath, rvalue as NSObject)):
+            guard let relem = try? JSONElement(any: rvalue) else {
+                return false
+            }
+            return lpath == rpath && lvalue.isJSONEquals(to: relem)
         case let (.remove(lpath), .remove(rpath)):
             return lpath == rpath
         case let (.move(lfrom, lpath), .move(rfrom, rpath)),

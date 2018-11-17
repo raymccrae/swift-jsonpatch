@@ -146,18 +146,25 @@ class JSONPatchTests: XCTestCase {
         runJSONTestFile("extra")
     }
 
-    func testAdd() throws {
-        let sample = """
-        {"foo": "bar"}
-        """
-
-        let jsonObject = try JSONSerialization.jsonObject(with: Data(sample.utf8), options: [])
-        var json = try JSONElement(any: jsonObject)
-
-//        let from = try JSONPointer(string: "/foo")
+    func testOperationEquality() throws {
         let ptr = try JSONPointer(string: "")
-        try json.replace(value: .object(value: ["baz": "qux"]), to: ptr)
-        print(json)
+        let oppa = JSONPatch.Operation.add(path: ptr, value: NSNumber(value: false))
+        let oppb = JSONPatch.Operation.add(path: ptr, value: NSNumber.init(value: 0))
+        XCTAssertNotEqual(oppa, oppb)
     }
+
+//    func testAdd() throws {
+//        let sample = """
+//        {"foo": "bar"}
+//        """
+//
+//        let jsonObject = try JSONSerialization.jsonObject(with: Data(sample.utf8), options: [])
+//        var json = try JSONElement(any: jsonObject)
+//
+////        let from = try JSONPointer(string: "/foo")
+//        let ptr = try JSONPointer(string: "")
+//        try json.replace(value: .object(value: ["baz": "qux"]), to: ptr)
+//        print(json)
+//    }
 
 }
