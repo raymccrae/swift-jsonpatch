@@ -41,12 +41,14 @@ public class JSONPatch {
         self.operations = operations
     }
 
-    public convenience init(jsonArray: NSArray) {
-        let operations = jsonArray.compactMap { (element) -> JSONPatch.Operation? in
-            guard let dictionary = element as? NSDictionary else {
-                    return nil
+    public convenience init(jsonArray: NSArray) throws {
+        var operations: [JSONPatch.Operation] = []
+        for (index, element) in (jsonArray as Array).enumerated() {
+            guard let obj = element as? NSDictionary else {
+                throw JSONError.invalidPatchFormat
             }
-            return JSONPatch.Operation(jsonObject: dictionary)
+            let operation = try JSONPatch.Operation(jsonObject: obj, index: index)
+            operations.append(operation)
         }
         self.init(operations: operations)
     }
@@ -69,67 +71,59 @@ public class JSONPatch {
 }
 
 extension JSONPatch.Operation {
+
+    private static func val(_ jsonObject: NSDictionary,
+                            _ op: String,
+                            _ field: String,
+                            _ index: Int) throws -> String {
+        guard let value = jsonObject[field] as? String else {
+            throw JSONError.missingRequiredPatchField(op: op, index: index, field: field)
+        }
+        return value
+    }
+
     /// Initialize a json-operation from a JSON Object representation.
     /// If the operation is not recogized or is missing a required field
     /// then nil is returned.
-    public init?(jsonObject: NSDictionary) {
+    public init(jsonObject: NSDictionary, index: Int = 0) throws {
         guard let op = jsonObject["op"] as? String else {
-            return nil
+            throw JSONError.missingRequiredPatchField(op: "", index: index, field: "op")
         }
 
         switch op {
         case "add":
-            guard
-                let path = jsonObject["path"] as? String,
-                let pointer = try? JSONPointer(string: path),
-                let value = jsonObject["value"] else {
-                    return nil
-            }
+            let path = try JSONPatch.Operation.val(jsonObject, "add", "path", index)
+            let value = try JSONPatch.Operation.val(jsonObject, "add", "value", index)
+            let pointer = try JSONPointer(string: path)
             self = .add(path: pointer, value: value)
         case "remove":
-            guard
-                let path = jsonObject["path"] as? String,
-                let pointer = try? JSONPointer(string: path) else {
-                    return nil
-            }
+            let path = try JSONPatch.Operation.val(jsonObject, "remove", "path", index)
+            let pointer = try JSONPointer(string: path)
             self = .remove(path: pointer)
         case "replace":
-            guard
-                let path = jsonObject["path"] as? String,
-                let pointer = try? JSONPointer(string: path),
-                let value = jsonObject["value"] else {
-                    return nil
-            }
+            let path = try JSONPatch.Operation.val(jsonObject, "replace", "path", index)
+            let value = try JSONPatch.Operation.val(jsonObject, "replace", "value", index)
+            let pointer = try JSONPointer(string: path)
             self = .replace(path: pointer, value: value)
         case "move":
-            guard
-                let from = jsonObject["from"] as? String,
-                let fpointer = try? JSONPointer(string: from),
-                let path = jsonObject["path"] as? String,
-                let ppointer = try? JSONPointer(string: path) else {
-                    return nil
-            }
+            let from = try JSONPatch.Operation.val(jsonObject, "move", "from", index)
+            let path = try JSONPatch.Operation.val(jsonObject, "move", "path", index)
+            let fpointer = try JSONPointer(string: from)
+            let ppointer = try JSONPointer(string: path)
             self = .move(from: fpointer, path: ppointer)
         case "copy":
-            guard
-                let from = jsonObject["from"] as? String,
-                let fpointer = try? JSONPointer(string: from),
-                let path = jsonObject["path"] as? String,
-                let ppointer = try? JSONPointer(string: path) else {
-                    return nil
-            }
+            let from = try JSONPatch.Operation.val(jsonObject, "copy", "from", index)
+            let path = try JSONPatch.Operation.val(jsonObject, "copy", "path", index)
+            let fpointer = try JSONPointer(string: from)
+            let ppointer = try JSONPointer(string: path)
             self = .copy(from: fpointer, path: ppointer)
         case "test":
-            guard
-                let path = jsonObject["path"] as? String,
-                let pointer = try? JSONPointer(string: path),
-                let value = jsonObject["value"] else {
-                    return nil
-            }
+            let path = try JSONPatch.Operation.val(jsonObject, "test", "path", index)
+            let value = try JSONPatch.Operation.val(jsonObject, "test", "value", index)
+            let pointer = try JSONPointer(string: path)
             self = .test(path: pointer, value: value)
         default:
-            // As per the spec, unrecogized ops should be ignored.
-            return nil
+            throw JSONError.unknownPatchOperation
         }
     }
 }

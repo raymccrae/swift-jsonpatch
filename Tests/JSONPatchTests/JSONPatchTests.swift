@@ -25,7 +25,7 @@ class JSONPatchTests: XCTestCase {
         let comment = dictionary["comment"] ?? ""
 
         do {
-            let jsonPatch = JSONPatch(jsonArray: patch)
+            let jsonPatch = try JSONPatch(jsonArray: patch)
             let result = try jsonPatch.apply(to: doc)
 
             if let expected = dictionary["expected"] {
