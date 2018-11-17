@@ -314,9 +314,10 @@ extension JSONElement {
         }
 
         var fromParentElement = try  makePathMutable(fromParent)
-        var toParentElement = try makePathMutable(toParent)
         let value = try fromParentElement.value(for: from.components.last!)
         try fromParentElement.removeValue(component: from.components.last!)
+
+        var toParentElement = try makePathMutable(toParent)
         try toParentElement.setValue(value, component: to.components.last!, replace: false)
     }
 
