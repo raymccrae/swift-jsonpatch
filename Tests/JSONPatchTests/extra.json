@@ -35,6 +35,12 @@
       "doc": {"a": {"b": []}},
       "patch": [{"op": "move", "from": "/a", "path": "/a/b/-"}],
       "error": "Unable to move element inside itself"
+    },
+
+    { "comment": "Boolean not eqivalent to number",
+        "doc": false,
+        "patch": [{"op": "test", "path": "", "value": 0}],
+        "error": "Test op failed"
     }
 
 ]

@@ -14,6 +14,7 @@
 		4D22EB28219878DC00729769 /* JSONPatch.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4D22EB27219878DC00729769 /* JSONPatch.swift */; };
 		4D22EB35219879EF00729769 /* JSONPatchTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4D22EB34219879EF00729769 /* JSONPatchTests.swift */; };
 		4D22EB37219879EF00729769 /* libJSONPatch.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 4D22EB24219878DC00729769 /* libJSONPatch.a */; };
+		4D305DBD21A020F800CE9C84 /* JSONElementTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4D305DBC21A020F800CE9C84 /* JSONElementTests.swift */; };
 		4D452744219B60A2002637CF /* extra.json in Resources */ = {isa = PBXBuildFile; fileRef = 4D452743219B60A2002637CF /* extra.json */; };
 		4D7011A1219A0FED005EC1B2 /* tests.json in Resources */ = {isa = PBXBuildFile; fileRef = 4D7011A0219A0FED005EC1B2 /* tests.json */; };
 		4D7011A3219A1E43005EC1B2 /* spec_tests.json in Resources */ = {isa = PBXBuildFile; fileRef = 4D7011A2219A1E43005EC1B2 /* spec_tests.json */; };
@@ -54,6 +55,7 @@
 		4D22EB32219879EF00729769 /* JSONPatchTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = JSONPatchTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		4D22EB34219879EF00729769 /* JSONPatchTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JSONPatchTests.swift; sourceTree = "<group>"; };
 		4D22EB36219879EF00729769 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		4D305DBC21A020F800CE9C84 /* JSONElementTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JSONElementTests.swift; sourceTree = "<group>"; };
 		4D452743219B60A2002637CF /* extra.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = extra.json; sourceTree = "<group>"; };
 		4D7011A0219A0FED005EC1B2 /* tests.json */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.json; path = tests.json; sourceTree = "<group>"; };
 		4D7011A2219A1E43005EC1B2 /* spec_tests.json */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.json; path = spec_tests.json; sourceTree = "<group>"; };
@@ -123,6 +125,7 @@
 				4D22EB36219879EF00729769 /* Info.plist */,
 				4D22EB34219879EF00729769 /* JSONPatchTests.swift */,
 				4D0AF307219885A400E7F86B /* JSONPointerTests.swift */,
+				4D305DBC21A020F800CE9C84 /* JSONElementTests.swift */,
 			);
 			name = JSONPatchTests;
 			path = Tests/JSONPatchTests;
@@ -234,6 +237,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				4D305DBD21A020F800CE9C84 /* JSONElementTests.swift in Sources */,
 				4D22EB35219879EF00729769 /* JSONPatchTests.swift in Sources */,
 				4D0AF308219885A400E7F86B /* JSONPointerTests.swift in Sources */,
 			);

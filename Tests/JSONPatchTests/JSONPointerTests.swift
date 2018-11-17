@@ -27,4 +27,13 @@ class JSONPointerTests: XCTestCase {
         XCTAssertEqual(parent("///"), "//")
     }
 
+    func testArrayIndexFormat() {
+        XCTAssertTrue(JSONPointer.isValidArrayIndex("-"))
+        XCTAssertFalse(JSONPointer.isValidArrayIndex("--"))
+        XCTAssertTrue(JSONPointer.isValidArrayIndex("0"))
+        XCTAssertTrue(JSONPointer.isValidArrayIndex("1"))
+        XCTAssertTrue(JSONPointer.isValidArrayIndex("10"))
+        XCTAssertFalse(JSONPointer.isValidArrayIndex("00"))
+    }
+
 }
