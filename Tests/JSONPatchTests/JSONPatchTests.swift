@@ -12,6 +12,10 @@ import XCTest
 class JSONPatchTests: XCTestCase {
 
     func runJSONTest(_ dictionary: NSDictionary) {
+        if let disabled = dictionary["disabled"] as? NSNumber, disabled.boolValue {
+            return
+        }
+
         guard let doc = dictionary["doc"] else {
             XCTFail("doc not found")
             return
