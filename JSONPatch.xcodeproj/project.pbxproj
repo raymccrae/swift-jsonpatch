@@ -17,6 +17,7 @@
 		4D452744219B60A2002637CF /* extra.json in Resources */ = {isa = PBXBuildFile; fileRef = 4D452743219B60A2002637CF /* extra.json */; };
 		4D7011A1219A0FED005EC1B2 /* tests.json in Resources */ = {isa = PBXBuildFile; fileRef = 4D7011A0219A0FED005EC1B2 /* tests.json */; };
 		4D7011A3219A1E43005EC1B2 /* spec_tests.json in Resources */ = {isa = PBXBuildFile; fileRef = 4D7011A2219A1E43005EC1B2 /* spec_tests.json */; };
+		4D836965219C0909003A38FE /* JSONEquality.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4D836964219C0909003A38FE /* JSONEquality.swift */; };
 		4DDA51EB219AAD8D00BA7704 /* NSArray+DeepCopy.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4DDA51EA219AAD8D00BA7704 /* NSArray+DeepCopy.swift */; };
 		4DDA51ED219AADE000BA7704 /* NSDictionary+DeepCopy.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4DDA51EC219AADE000BA7704 /* NSDictionary+DeepCopy.swift */; };
 /* End PBXBuildFile section */
@@ -56,6 +57,7 @@
 		4D452743219B60A2002637CF /* extra.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = extra.json; sourceTree = "<group>"; };
 		4D7011A0219A0FED005EC1B2 /* tests.json */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.json; path = tests.json; sourceTree = "<group>"; };
 		4D7011A2219A1E43005EC1B2 /* spec_tests.json */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.json; path = spec_tests.json; sourceTree = "<group>"; };
+		4D836964219C0909003A38FE /* JSONEquality.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JSONEquality.swift; sourceTree = "<group>"; };
 		4DDA51EA219AAD8D00BA7704 /* NSArray+DeepCopy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "NSArray+DeepCopy.swift"; sourceTree = "<group>"; };
 		4DDA51EC219AADE000BA7704 /* NSDictionary+DeepCopy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "NSDictionary+DeepCopy.swift"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -106,6 +108,7 @@
 				4D0AF30521987C8900E7F86B /* JSONPointer.swift */,
 				4DDA51EA219AAD8D00BA7704 /* NSArray+DeepCopy.swift */,
 				4DDA51EC219AADE000BA7704 /* NSDictionary+DeepCopy.swift */,
+				4D836964219C0909003A38FE /* JSONEquality.swift */,
 			);
 			name = JSONPatch;
 			path = Sources/JSONPatch;
@@ -222,6 +225,7 @@
 				4DDA51EB219AAD8D00BA7704 /* NSArray+DeepCopy.swift in Sources */,
 				4D0AF30421987C0A00E7F86B /* JSONElement.swift in Sources */,
 				4D22EB28219878DC00729769 /* JSONPatch.swift in Sources */,
+				4D836965219C0909003A38FE /* JSONEquality.swift in Sources */,
 				4D0AF30621987C8900E7F86B /* JSONPointer.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
