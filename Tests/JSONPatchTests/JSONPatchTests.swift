@@ -37,6 +37,8 @@ class JSONPatchTests: XCTestCase {
                     XCTFail("result does not match expected: \(comment)")
                     return
                 }
+            } else {
+                XCTFail("Error should occur: \(comment)")
             }
         } catch {
             guard let _ = dictionary["error"] as? String else {
