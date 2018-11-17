@@ -20,7 +20,8 @@
 
 import Foundation
 
-/// JSON Element holds a reference an element of the parsed JSON structure.
+/// JSON Element holds a reference an element of the parsed JSON structure
+/// produced by JSONSerialization.
 enum JSONElement {
     case object(value: NSDictionary)
     case mutableObject(value: NSMutableDictionary)
@@ -168,6 +169,7 @@ extension JSONElement {
 
         case .array(let array), .mutableArray(let array as NSArray):
             guard
+                JSONPointer.isValidArrayIndex(component),
                 let index = Int(component),
                 0..<array.count ~= index else {
                     throw JSONError.referencesNonexistentValue
@@ -195,6 +197,7 @@ extension JSONElement {
                 }
             } else {
                 guard
+                    JSONPointer.isValidArrayIndex(component),
                     let index = Int(component),
                     0...array.count ~= index else {
                         throw JSONError.referencesNonexistentValue
@@ -214,12 +217,19 @@ extension JSONElement {
     private mutating func removeValue(component: String) throws {
         switch self {
         case .mutableObject(let dictionary):
+            guard dictionary[component] != nil else {
+                throw JSONError.referencesNonexistentValue
+            }
             dictionary.removeObject(forKey: component)
         case .mutableArray(let array):
             if component == "-" {
+                guard array.count > 0 else {
+                    throw JSONError.referencesNonexistentValue
+                }
                 array.removeLastObject()
             } else {
                 guard
+                    JSONPointer.isValidArrayIndex(component),
                     let index = Int(component),
                     0..<array.count ~= index else {
                         throw JSONError.referencesNonexistentValue

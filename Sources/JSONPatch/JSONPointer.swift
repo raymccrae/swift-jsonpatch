@@ -112,6 +112,19 @@ extension JSONPointer {
 
 }
 
+extension JSONPointer {
+    private static let arrayIndexPattern: NSRegularExpression = {
+        return try! NSRegularExpression(pattern: "^(?:-|0|(?:[1-9][0-9]*))$", options: [])
+    }()
+
+    static func isValidArrayIndex(_ component: String) -> Bool {
+        let match = arrayIndexPattern.firstMatch(in: component,
+                                                 options: [.anchored],
+                                                 range: NSRange(location: 0, length: component.utf16.count))
+        return match != nil
+    }
+}
+
 extension JSONPointer: CustomDebugStringConvertible {
 
     public var debugDescription: String {

@@ -23,6 +23,9 @@ import Foundation
 public enum JSONError: Error {
     case invalidObjectType
     case invalidPointerSyntax
+    case invalidPatchFormat
     case referencesNonexistentValue
+    case unknownPatchOperation
+    case missingRequiredPatchField(op: String, index: Int, field: String)
     case patchTestFailed(path: String, expected: Any, found: Any?)
 }
