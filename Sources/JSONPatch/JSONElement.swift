@@ -88,7 +88,7 @@ extension JSONElement {
     /// Creates a new JSONElement with a copied raw value of the reciever.
     ///
     /// - Returns: A JSONElement representing a copy of the reciever.
-    private func copy() -> JSONElement {
+    func copy() -> JSONElement {
         switch rawValue {
         case let dict as NSDictionary:
             return try! JSONElement(any: dict.deepMutableCopy())
@@ -384,9 +384,16 @@ extension JSONElement {
         }
     }
 
-    mutating func apply(patch: JSONPatch) throws {
-        for operation in patch.operations {
-            try apply(operation)
+    mutating func apply(patch: JSONPatch, relativeTo path: JSONPointer? = nil) throws {
+        if let path = path, let parent = path.parent {
+            var parentElement = try makePathMutable(parent)
+            var relativeRoot = try parentElement.value(for: path.components.last!)
+            try relativeRoot.apply(patch: patch)
+            try parentElement.setValue(relativeRoot, component: path.components.last!, replace: true)
+        } else {
+            for operation in patch.operations {
+                try apply(operation)
+            }
         }
     }
 

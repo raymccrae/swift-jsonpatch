@@ -89,14 +89,30 @@ public class JSONPatch {
     /// Each operation in the sequence is applied to the target document;
     /// the resulting document becomes the target of the next operation.
     /// Evaluation continues until all operations are successfully applied
-    /// or until an error condition is encountered.
+    /// or until an error condition is encountered. If you are going to apply
+    /// the patch inplace then it can be more performant if the jsonObject
+    /// has been parsing using the .mutableContainers reading option on
+    /// JSONSerialization, as this will eliminate the need to make copies of sections
+    /// of the json document while applying the patch.
     ///
     /// - Parameters:
     ///   - jsonObject: The target json document to patch the patch to.
+    ///   - path: Can be used to apply the patch to sub-element within the json document.
+    ///           If nil then the patch is applied directly to the jsonObject given.
+    ///   - inplace: If true the patch will be applied directly on to the json object
+    ///              given, which is the most memory efficient option. However when applying
+    ///              a patch inplace the result is not atomic, if an error occurs then the
+    ///              json object may be left in a partial state. If false then a copy of
+    ///              the json document is created and the patch applied to the copy.
     /// - Returns: A transformed json document with the patch applied.
-    public func apply(to jsonObject: Any) throws -> Any {
+    public func apply(to jsonObject: Any,
+                      relativeTo path: JSONPointer? = nil,
+                      inplace: Bool = true) throws -> Any {
         var jsonDocument = try JSONElement(any: jsonObject)
-        try jsonDocument.apply(patch: self)
+        if !inplace {
+            jsonDocument = jsonDocument.copy()
+        }
+        try jsonDocument.apply(patch: self, relativeTo: path)
         return jsonDocument.rawValue
     }
 
@@ -107,16 +123,19 @@ public class JSONPatch {
     ///
     /// - Parameters:
     ///   - data: A data representation of the json document to apply the patch to.
+    ///   - path: Can be used to apply the patch to sub-element within the json document.
+    ///           If nil then the patch is applied directly to the whole json document.
     ///   - readingOptions: The options given to JSONSerialization to parse the json data.
     ///   - writingOptions: The options given to JSONSerialization to write the result to data.
     /// - Returns: The transformed json document as data.
     public func apply(to data: Data,
+                      relativeTo path: JSONPointer? = nil,
                       readingOptions: JSONSerialization.ReadingOptions = [.mutableContainers],
                       writingOptions: JSONSerialization.WritingOptions = []) throws -> Data {
         let jsonObject = try JSONSerialization.jsonObject(with: data,
                                                           options: readingOptions)
         var jsonElement = try JSONElement(any: jsonObject)
-        try jsonElement.apply(patch: self)
+        try jsonElement.apply(patch: self, relativeTo: path)
         let transformedData = try JSONSerialization.data(with: jsonElement,
                                                          options: writingOptions)
         return transformedData
