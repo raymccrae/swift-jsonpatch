@@ -418,6 +418,18 @@ extension JSONElement: Equatable {
 
 extension JSONSerialization {
 
+    /// Parse JSON data to a JSOE Element. This wraps the jsonObject(with:options:) method
+    /// however the resuting Any type is wrapped in a JSONElement type.
+    ///
+    /// - Parameters:
+    ///   - data: The JSON data to parse. See jsonObject(with:options:) for supported encodings.
+    ///   - options: The reading options. See jsonObject(with:options:) for supported options.
+    /// - Returns: The JSON Element representing the top-level element of the json document.
+    static func jsonElement(with data: Data, options: ReadingOptions) throws -> JSONElement {
+        let jsonObject = try JSONSerialization.jsonObject(with: data, options: options)
+        return try JSONElement(any: jsonObject)
+    }
+
     /// Generate JSON data from a JSONElement using JSONSerialization. This method supports
     /// top-level fragments (root elements that are not containers).
     ///
