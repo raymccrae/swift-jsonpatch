@@ -62,8 +62,7 @@ class JSONPatchTests: XCTestCase {
 
     func runJSONTestFile(_ name: String) {
         guard
-            let bundle = Bundle(identifier: "scot.raymccrae.JSONPatchTests"),
-            let url = bundle.url(forResource: name, withExtension: "json"),
+            let url = Bundle.test.url(forResource: name, withExtension: "json"),
             let data = try? Data(contentsOf: url),
             let json = try? JSONSerialization.jsonObject(with: data, options: []),
             let array = json as? NSArray else {
@@ -162,6 +161,36 @@ class JSONPatchTests: XCTestCase {
                                  readingOptions: [.allowFragments],
                                  writingOptions: [])
         XCTAssertEqual(String(data: result, encoding: .utf8), "false")
+    }
+
+    func testLargeJson() throws {
+        let sourceURL = Bundle.test.url(forResource: "bigexample1", withExtension: "json")!
+        let targetURL = Bundle.test.url(forResource: "bigexample2", withExtension: "json")!
+        let patchURL = Bundle.test.url(forResource: "bigpatch", withExtension: "json")!
+
+        let sourceData = try Data(contentsOf: sourceURL)
+        let targetData = try Data(contentsOf: targetURL)
+        let patchData = try Data(contentsOf: patchURL)
+
+        var sourceElem = try JSONSerialization.jsonElement(with: sourceData, options: [.mutableContainers])
+        let targetElem = try JSONSerialization.jsonElement(with: targetData, options: [.mutableContainers])
+
+        let patch = try JSONPatch(data: patchData)
+        try sourceElem.apply(patch: patch)
+        XCTAssertEqual(sourceElem, targetElem)
+    }
+
+    func testLargeJSONPerformance() throws {
+        let sourceURL = Bundle.test.url(forResource: "bigexample1", withExtension: "json")!
+        let patchURL = Bundle.test.url(forResource: "bigpatch", withExtension: "json")!
+
+        let sourceData = try Data(contentsOf: sourceURL)
+        let patchData = try Data(contentsOf: patchURL)
+
+        measure {
+            let patch = try? JSONPatch(data: patchData)
+            _ = try? patch?.apply(to: sourceData)
+        }
     }
 
 //    func testAdd() throws {

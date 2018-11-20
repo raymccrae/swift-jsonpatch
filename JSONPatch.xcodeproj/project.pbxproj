@@ -16,6 +16,9 @@
 		4D22EB37219879EF00729769 /* libJSONPatch.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 4D22EB24219878DC00729769 /* libJSONPatch.a */; };
 		4D305DBD21A020F800CE9C84 /* JSONElementTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4D305DBC21A020F800CE9C84 /* JSONElementTests.swift */; };
 		4D452744219B60A2002637CF /* extra.json in Resources */ = {isa = PBXBuildFile; fileRef = 4D452743219B60A2002637CF /* extra.json */; };
+		4D471D8F21A353A900E43468 /* bigexample2.json in Resources */ = {isa = PBXBuildFile; fileRef = 4D471D8C21A353A800E43468 /* bigexample2.json */; };
+		4D471D9021A353A900E43468 /* bigexample1.json in Resources */ = {isa = PBXBuildFile; fileRef = 4D471D8D21A353A900E43468 /* bigexample1.json */; };
+		4D471D9121A353A900E43468 /* bigpatch.json in Resources */ = {isa = PBXBuildFile; fileRef = 4D471D8E21A353A900E43468 /* bigpatch.json */; };
 		4D471D9321A3545900E43468 /* Bundle.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4D471D9221A3545900E43468 /* Bundle.swift */; };
 		4D7011A1219A0FED005EC1B2 /* tests.json in Resources */ = {isa = PBXBuildFile; fileRef = 4D7011A0219A0FED005EC1B2 /* tests.json */; };
 		4D7011A3219A1E43005EC1B2 /* spec_tests.json in Resources */ = {isa = PBXBuildFile; fileRef = 4D7011A2219A1E43005EC1B2 /* spec_tests.json */; };
@@ -58,6 +61,9 @@
 		4D22EB36219879EF00729769 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		4D305DBC21A020F800CE9C84 /* JSONElementTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JSONElementTests.swift; sourceTree = "<group>"; };
 		4D452743219B60A2002637CF /* extra.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = extra.json; sourceTree = "<group>"; };
+		4D471D8C21A353A800E43468 /* bigexample2.json */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.json; path = bigexample2.json; sourceTree = "<group>"; };
+		4D471D8D21A353A900E43468 /* bigexample1.json */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.json; path = bigexample1.json; sourceTree = "<group>"; };
+		4D471D8E21A353A900E43468 /* bigpatch.json */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.json; path = bigpatch.json; sourceTree = "<group>"; };
 		4D471D9221A3545900E43468 /* Bundle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Bundle.swift; sourceTree = "<group>"; };
 		4D7011A0219A0FED005EC1B2 /* tests.json */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.json; path = tests.json; sourceTree = "<group>"; };
 		4D7011A2219A1E43005EC1B2 /* spec_tests.json */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.json; path = spec_tests.json; sourceTree = "<group>"; };
@@ -121,6 +127,7 @@
 		4D22EB33219879EF00729769 /* JSONPatchTests */ = {
 			isa = PBXGroup;
 			children = (
+				4D471D8B21A3538000E43468 /* TestData */,
 				4D7011A0219A0FED005EC1B2 /* tests.json */,
 				4D7011A2219A1E43005EC1B2 /* spec_tests.json */,
 				4D452743219B60A2002637CF /* extra.json */,
@@ -132,6 +139,16 @@
 			);
 			name = JSONPatchTests;
 			path = Tests/JSONPatchTests;
+			sourceTree = "<group>";
+		};
+		4D471D8B21A3538000E43468 /* TestData */ = {
+			isa = PBXGroup;
+			children = (
+				4D471D8D21A353A900E43468 /* bigexample1.json */,
+				4D471D8C21A353A800E43468 /* bigexample2.json */,
+				4D471D8E21A353A900E43468 /* bigpatch.json */,
+			);
+			name = TestData;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -213,7 +230,10 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				4D471D8F21A353A900E43468 /* bigexample2.json in Resources */,
 				4D7011A3219A1E43005EC1B2 /* spec_tests.json in Resources */,
+				4D471D9021A353A900E43468 /* bigexample1.json in Resources */,
+				4D471D9121A353A900E43468 /* bigpatch.json in Resources */,
 				4D452744219B60A2002637CF /* extra.json in Resources */,
 				4D7011A1219A0FED005EC1B2 /* tests.json in Resources */,
 			);
