@@ -23,61 +23,6 @@ import XCTest
 
 class JSONPatchTests: XCTestCase {
 
-    func runJSONTest(_ dictionary: NSDictionary) {
-        if let disabled = dictionary["disabled"] as? NSNumber, disabled.boolValue {
-            return
-        }
-
-        guard let doc = dictionary["doc"] else {
-            XCTFail("doc not found")
-            return
-        }
-
-        guard let patch = dictionary["patch"] as? NSArray else {
-            XCTFail("patch not found")
-            return
-        }
-
-        let comment = dictionary["comment"] ?? ""
-
-        do {
-            let jsonPatch = try JSONPatch(jsonArray: patch)
-            let result = try jsonPatch.apply(to: doc)
-
-            if let expected = dictionary["expected"] {
-                guard (result as? NSObject)?.isEqual(expected) ?? false else {
-                    XCTFail("result does not match expected: \(comment)")
-                    return
-                }
-            } else {
-                XCTFail("Error should occur: \(comment)")
-            }
-        } catch {
-            guard let _ = dictionary["error"] as? String else {
-                XCTFail("Unexpected error: \(comment)")
-                return
-            }
-        }
-    }
-
-    func runJSONTestFile(_ name: String) {
-        guard
-            let url = Bundle.test.url(forResource: name, withExtension: "json"),
-            let data = try? Data(contentsOf: url),
-            let json = try? JSONSerialization.jsonObject(with: data, options: []),
-            let array = json as? NSArray else {
-            XCTFail("Unable to read file \(name)")
-            return
-        }
-
-        for test in array {
-            guard let testDict = test as? NSDictionary else {
-                continue
-            }
-            runJSONTest(testDict)
-        }
-    }
-
     func evaluate(path: String, on json: JSONElement) -> JSONElement? {
         guard let ptr = try? JSONPointer(string: path) else {
             return nil
@@ -131,18 +76,6 @@ class JSONPatchTests: XCTestCase {
         XCTAssertEqual(evaluate(path: "#/k%22l", on: json), .number(value: NSNumber(value: 6)))
         XCTAssertEqual(evaluate(path: "#/%20", on: json), .number(value: NSNumber(value: 7)))
         XCTAssertEqual(evaluate(path: "#/m~0n", on: json), .number(value: NSNumber(value: 8)))
-    }
-
-    func testJSON() {
-        runJSONTestFile("tests")
-    }
-
-    func testJSONPatchSpec() {
-        runJSONTestFile("spec_tests")
-    }
-
-    func testJSONPatchExtra() {
-        runJSONTestFile("extra")
     }
 
     func testOperationEquality() throws {

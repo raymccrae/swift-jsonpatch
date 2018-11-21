@@ -22,6 +22,8 @@
 		4D471D9321A3545900E43468 /* Bundle.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4D471D9221A3545900E43468 /* Bundle.swift */; };
 		4D7011A1219A0FED005EC1B2 /* tests.json in Resources */ = {isa = PBXBuildFile; fileRef = 4D7011A0219A0FED005EC1B2 /* tests.json */; };
 		4D7011A3219A1E43005EC1B2 /* spec_tests.json in Resources */ = {isa = PBXBuildFile; fileRef = 4D7011A2219A1E43005EC1B2 /* spec_tests.json */; };
+		4D7E4D0721A6063800BFE359 /* JSONFileTestCase.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4D7E4D0621A6063800BFE359 /* JSONFileTestCase.swift */; };
+		4D7E4D0921A60F2D00BFE359 /* TestFileTestCase.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4D7E4D0821A60F2D00BFE359 /* TestFileTestCase.swift */; };
 		4D836965219C0909003A38FE /* JSONEquality.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4D836964219C0909003A38FE /* JSONEquality.swift */; };
 		4DDA51EB219AAD8D00BA7704 /* NSArray+DeepCopy.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4DDA51EA219AAD8D00BA7704 /* NSArray+DeepCopy.swift */; };
 		4DDA51ED219AADE000BA7704 /* NSDictionary+DeepCopy.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4DDA51EC219AADE000BA7704 /* NSDictionary+DeepCopy.swift */; };
@@ -67,6 +69,8 @@
 		4D471D9221A3545900E43468 /* Bundle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Bundle.swift; sourceTree = "<group>"; };
 		4D7011A0219A0FED005EC1B2 /* tests.json */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.json; path = tests.json; sourceTree = "<group>"; };
 		4D7011A2219A1E43005EC1B2 /* spec_tests.json */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.json; path = spec_tests.json; sourceTree = "<group>"; };
+		4D7E4D0621A6063800BFE359 /* JSONFileTestCase.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JSONFileTestCase.swift; sourceTree = "<group>"; };
+		4D7E4D0821A60F2D00BFE359 /* TestFileTestCase.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestFileTestCase.swift; sourceTree = "<group>"; };
 		4D836964219C0909003A38FE /* JSONEquality.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JSONEquality.swift; sourceTree = "<group>"; };
 		4DDA51EA219AAD8D00BA7704 /* NSArray+DeepCopy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "NSArray+DeepCopy.swift"; sourceTree = "<group>"; };
 		4DDA51EC219AADE000BA7704 /* NSDictionary+DeepCopy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "NSDictionary+DeepCopy.swift"; sourceTree = "<group>"; };
@@ -136,6 +140,8 @@
 				4D0AF307219885A400E7F86B /* JSONPointerTests.swift */,
 				4D305DBC21A020F800CE9C84 /* JSONElementTests.swift */,
 				4D471D9221A3545900E43468 /* Bundle.swift */,
+				4D7E4D0621A6063800BFE359 /* JSONFileTestCase.swift */,
+				4D7E4D0821A60F2D00BFE359 /* TestFileTestCase.swift */,
 			);
 			name = JSONPatchTests;
 			path = Tests/JSONPatchTests;
@@ -263,7 +269,9 @@
 				4D305DBD21A020F800CE9C84 /* JSONElementTests.swift in Sources */,
 				4D471D9321A3545900E43468 /* Bundle.swift in Sources */,
 				4D22EB35219879EF00729769 /* JSONPatchTests.swift in Sources */,
+				4D7E4D0721A6063800BFE359 /* JSONFileTestCase.swift in Sources */,
 				4D0AF308219885A400E7F86B /* JSONPointerTests.swift in Sources */,
+				4D7E4D0921A60F2D00BFE359 /* TestFileTestCase.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
