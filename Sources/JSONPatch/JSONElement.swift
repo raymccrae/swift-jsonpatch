@@ -54,6 +54,16 @@ extension JSONElement {
         }
     }
 
+    /// Indicates if the receiver is a container element (dictionary or array).
+    var isContainer: Bool {
+        switch self {
+        case .object, .mutableObject, .array, .mutableArray:
+            return true
+        default:
+            return false
+        }
+    }
+
     /// Indicates if the receiver is a mutable container (dictionary or array).
     var isMutable: Bool {
         switch self {

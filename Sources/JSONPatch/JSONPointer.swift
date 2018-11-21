@@ -138,5 +138,10 @@ extension JSONPointer: Equatable {
     public static func == (lhs: JSONPointer, rhs: JSONPointer) -> Bool {
         return lhs.string == rhs.string
     }
+}
 
+extension JSONPointer: Hashable {
+    public var hashValue: Int {
+        return string.hashValue
+    }
 }
