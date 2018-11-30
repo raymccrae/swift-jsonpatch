@@ -16,7 +16,7 @@ let jsonstr = """
               {"foo": "bar"}
               """
 let patchstr = """
-               {"op": "add", "path": "/baz", "value": "qux"}
+               [{"op": "add", "path": "/baz", "value": "qux"}]
                """
 
 let json = Data(jsonstr.utf8)
