@@ -158,7 +158,7 @@ extension JSONElement {
         }
 
         var element = self
-        for component in pointer.components {
+        for component in pointer {
             var child = try element.value(for: component)
             if !child.isMutable {
                 child.makeMutable()
@@ -277,7 +277,7 @@ extension JSONElement {
     ///   - pointer: The JSON Pointer to evaluate.
     /// - Returns: The JSON Element pointed to by the JSON Pointer
     public func evaluate(pointer: JSONPointer) throws -> JSONElement {
-        return try pointer.components.reduce(self, { return try $0.value(for: $1) })
+        return try pointer.reduce(self, { return try $0.value(for: $1) })
     }
 
     /// Adds the value to the JSON structure pointed to by the JSON Pointer.
@@ -292,7 +292,7 @@ extension JSONElement {
         }
 
         var parentElement = try makePathMutable(parent)
-        try parentElement.setValue(value, component: pointer.components.last!, replace: false)
+        try parentElement.setValue(value, component: pointer.lastComponent!, replace: false)
     }
 
     /// Removes a value from a JSON structure pointed to by the JSON Pointer.
@@ -306,7 +306,7 @@ extension JSONElement {
         }
 
         var parentElement = try makePathMutable(parent)
-        try parentElement.removeValue(component: pointer.components.last!)
+        try parentElement.removeValue(component: pointer.lastComponent!)
     }
 
     /// Replaces a value at the location pointed to by the JSON Pointer with
@@ -323,8 +323,8 @@ extension JSONElement {
         }
 
         var parentElement = try makePathMutable(parent)
-        _ = try parentElement.value(for: pointer.components.last!)
-        try parentElement.setValue(value, component: pointer.components.last!, replace: true)
+        _ = try parentElement.value(for: pointer.lastComponent!)
+        try parentElement.setValue(value, component: pointer.lastComponent!, replace: true)
     }
 
     /// Moves a value at the from location to a new location within the JSON Structure.
@@ -343,11 +343,11 @@ extension JSONElement {
         }
 
         var fromParentElement = try  makePathMutable(fromParent)
-        let value = try fromParentElement.value(for: from.components.last!)
-        try fromParentElement.removeValue(component: from.components.last!)
+        let value = try fromParentElement.value(for: from.lastComponent!)
+        try fromParentElement.removeValue(component: from.lastComponent!)
 
         var toParentElement = try makePathMutable(toParent)
-        try toParentElement.setValue(value, component: to.components.last!, replace: false)
+        try toParentElement.setValue(value, component: to.lastComponent!, replace: false)
     }
 
     /// Copies a JSON element within the JSON structure to a new location.
@@ -367,9 +367,9 @@ extension JSONElement {
 
         let fromParentElement = try makePathMutable(fromParent)
         var toParentElement = try makePathMutable(toParent)
-        let value = try fromParentElement.value(for: from.components.last!)
+        let value = try fromParentElement.value(for: from.lastComponent!)
         let valueCopy = value.copy()
-        try toParentElement.setValue(valueCopy, component: to.components.last!, replace: false)
+        try toParentElement.setValue(valueCopy, component: to.lastComponent!, replace: false)
     }
 
     /// Tests a value within the JSON structure against the given value.
@@ -416,9 +416,9 @@ extension JSONElement {
     public mutating func apply(patch: JSONPatch, relativeTo path: JSONPointer? = nil) throws {
         if let path = path, let parent = path.parent {
             var parentElement = try makePathMutable(parent)
-            var relativeRoot = try parentElement.value(for: path.components.last!)
+            var relativeRoot = try parentElement.value(for: path.lastComponent!)
             try relativeRoot.apply(patch: patch)
-            try parentElement.setValue(relativeRoot, component: path.components.last!, replace: true)
+            try parentElement.setValue(relativeRoot, component: path.lastComponent!, replace: true)
         } else {
             for operation in patch.operations {
                 try apply(operation)

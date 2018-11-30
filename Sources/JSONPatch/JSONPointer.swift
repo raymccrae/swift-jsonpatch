@@ -23,38 +23,42 @@ import Foundation
 /// A JSON Pointer implementation, based on RFC 6901.
 /// https://tools.ietf.org/html/rfc6901
 public struct JSONPointer {
-    /// A string representation of the json-pointer.
-    public let string: String
 
     /// An array of the unescaped components of the json-pointer.
-    public let components: [String]
+    private let components: ArraySlice<String>
 
     /// An internal initalizer for the JSONPointer to force public access to use init(string:).
-    private init(string: String, components: [String]) {
-        self.string = string
+    private init(components: ArraySlice<String>) {
         self.components = components
     }
+
 }
 
 extension JSONPointer {
 
+    /// A string representation of the json-pointer.
+    public var string: String {
+        guard !components.isEmpty else {
+            return ""
+        }
+        return "/" + components.map(JSONPointer.escape).joined(separator: "/")
+    }
+
     /// A JSON Pointer to the container of the element of the reciever, or nil if the reciever
     /// references the root element of the whole JSON document.
     public var parent: JSONPointer? {
-        guard
-            components.count > 0,
-            let index = string.lastIndex(of: "/") else {
+        switch components.count {
+        case 0:
             return nil
+        case 1 where !components[0].isEmpty:
+            return JSONPointer(components: [""])
+        default:
+            return JSONPointer(components: components.dropLast())
         }
-        guard string != "/" else {
-            return JSONPointer(string: "", components: [])
-        }
+    }
 
-        if index == string.startIndex {
-            return JSONPointer(string: "/", components: [""])
-        } else {
-            return try? JSONPointer(string: String(string[..<index]))
-        }
+    public var lastComponent: String? {
+        return components.last
     }
 
     public var isWholeDocument: Bool {
@@ -71,7 +75,7 @@ extension JSONPointer {
     /// Initializer for JSONPointer
     public init(string: String) throws {
         guard !string.isEmpty else {
-            self.init(string: string, components: [])
+            self.init(components: [])
             return
         }
         guard !string.hasPrefix("#") else {
@@ -88,7 +92,7 @@ extension JSONPointer {
 
         let escapedComponents = string.components(separatedBy: "/").dropFirst()
         let unescapedComponents = escapedComponents.map(JSONPointer.unescape)
-        self.init(string: string, components: unescapedComponents)
+        self.init(components: ArraySlice(unescapedComponents))
     }
 
     /// Unescapes the escape sequence within the string.
@@ -108,6 +112,10 @@ extension JSONPointer {
         value = value.replacingOccurrences(of: "~", with: "~0")
         value = value.replacingOccurrences(of: "/", with: "~1")
         return value
+    }
+
+    func appended(withComponent component: String) -> JSONPointer {
+        return JSONPointer(components: ArraySlice(components + [component]))
     }
 
 }
@@ -144,4 +152,24 @@ extension JSONPointer: Hashable {
     public var hashValue: Int {
         return string.hashValue
     }
+}
+
+extension JSONPointer: Collection {
+
+    public var startIndex: Int {
+        return components.startIndex
+    }
+
+    public var endIndex: Int {
+        return components.endIndex
+    }
+
+    public func index(after i: Int) -> Int {
+        return i + 1
+    }
+
+    public subscript(index: Int) -> String {
+        return components[index]
+    }
+
 }
