@@ -80,15 +80,15 @@ class JSONPatchTests: XCTestCase {
 
     func testOperationEquality() throws {
         let ptr = try JSONPointer(string: "")
-        let oppa = JSONPatch.Operation.add(path: ptr, value: NSNumber(value: false))
-        let oppb = JSONPatch.Operation.add(path: ptr, value: NSNumber.init(value: 0))
+        let oppa = JSONPatch.Operation.add(path: ptr, value: JSONElement(false))
+        let oppb = JSONPatch.Operation.add(path: ptr, value: JSONElement(0))
         XCTAssertNotEqual(oppa, oppb)
     }
 
     func testTopLevelFragments() throws {
         let ptr = try JSONPointer(string: "")
         let doc = Data("3".utf8)
-        let op = JSONPatch.Operation.replace(path: ptr, value: false as NSNumber)
+        let op = JSONPatch.Operation.replace(path: ptr, value: JSONElement(false))
         let patch = JSONPatch(operations: [op])
         let result = try patch.apply(to: doc,
                                  readingOptions: [.allowFragments],

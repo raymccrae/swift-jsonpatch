@@ -34,12 +34,12 @@ public class JSONPatch {
     /// A representation of the supported operations json-patch.
     /// (see [RFC6902], Section 4)
     public enum Operation {
-        case add(path: JSONPointer, value: Any)
+        case add(path: JSONPointer, value: JSONElement)
         case remove(path: JSONPointer)
-        case replace(path: JSONPointer, value: Any)
+        case replace(path: JSONPointer, value: JSONElement)
         case move(from: JSONPointer, path: JSONPointer)
         case copy(from: JSONPointer, path: JSONPointer)
-        case test(path: JSONPointer, value: Any)
+        case test(path: JSONPointer, value: JSONElement)
     }
 
     /// An array of json-patch operations that will be applied in sequence.
@@ -162,7 +162,8 @@ extension JSONPatch.Operation {
             let path: String = try JSONPatch.Operation.val(jsonObject, "add", "path", index)
             let value: Any = try JSONPatch.Operation.val(jsonObject, "add", "value", index)
             let pointer = try JSONPointer(string: path)
-            self = .add(path: pointer, value: value)
+            let element = try JSONElement(any: value)
+            self = .add(path: pointer, value: element)
         case "remove":
             let path: String = try JSONPatch.Operation.val(jsonObject, "remove", "path", index)
             let pointer = try JSONPointer(string: path)
@@ -171,7 +172,8 @@ extension JSONPatch.Operation {
             let path: String = try JSONPatch.Operation.val(jsonObject, "replace", "path", index)
             let value: Any = try JSONPatch.Operation.val(jsonObject, "replace", "value", index)
             let pointer = try JSONPointer(string: path)
-            self = .replace(path: pointer, value: value)
+            let element = try JSONElement(any: value)
+            self = .replace(path: pointer, value: element)
         case "move":
             let from: String = try JSONPatch.Operation.val(jsonObject, "move", "from", index)
             let path: String = try JSONPatch.Operation.val(jsonObject, "move", "path", index)
@@ -188,7 +190,8 @@ extension JSONPatch.Operation {
             let path: String = try JSONPatch.Operation.val(jsonObject, "test", "path", index)
             let value: Any = try JSONPatch.Operation.val(jsonObject, "test", "value", index)
             let pointer = try JSONPointer(string: path)
-            self = .test(path: pointer, value: value)
+            let element = try JSONElement(any: value)
+            self = .test(path: pointer, value: element)
         default:
             throw JSONError.unknownPatchOperation
         }
@@ -215,13 +218,10 @@ extension JSONPatch.Operation: Equatable {
     /// - Returns: true is the lhs is equal to the rhs.
     public static func == (lhs: JSONPatch.Operation, rhs: JSONPatch.Operation) -> Bool {
         switch (lhs, rhs) {
-        case let (.add(lpath, lvalue as JSONEquatable), .add(rpath, rvalue as NSObject)),
-             let (.replace(lpath, lvalue as JSONEquatable), .replace(rpath, rvalue as NSObject)),
-             let (.test(lpath, lvalue as JSONEquatable), .test(rpath, rvalue as NSObject)):
-            guard let relem = try? JSONElement(any: rvalue) else {
-                return false
-            }
-            return lpath == rpath && lvalue.isJSONEquals(to: relem)
+        case let (.add(lpath, lvalue), .add(rpath, rvalue)),
+             let (.replace(lpath, lvalue), .replace(rpath, rvalue)),
+             let (.test(lpath, lvalue), .test(rpath, rvalue)):
+            return lpath == rpath && lvalue == rvalue
         case let (.remove(lpath), .remove(rpath)):
             return lpath == rpath
         case let (.move(lfrom, lpath), .move(rfrom, rpath)),

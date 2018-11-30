@@ -22,7 +22,7 @@ import Foundation
 
 /// JSON Element holds a reference an element of the parsed JSON structure
 /// produced by JSONSerialization.
-enum JSONElement {
+public enum JSONElement {
     case object(value: NSDictionary)
     case mutableObject(value: NSMutableDictionary)
     case array(value: NSArray)
@@ -34,8 +34,27 @@ enum JSONElement {
 
 extension JSONElement {
 
+    public init(_ value: String) {
+        self = .string(value: value as NSString)
+    }
+
+    public init(_ value: Int) {
+        self = .number(value: value as NSNumber)
+    }
+
+    public init(_ value: Double) {
+        self = .number(value: value as NSNumber)
+    }
+
+    public init(_ value: Bool) {
+        self = .number(value: value as NSNumber)
+    }
+}
+
+extension JSONElement {
+
     /// The raw value of the underlying JSON representation.
-    var rawValue: Any {
+    public var rawValue: Any {
         switch self {
         case .object(let value):
             return value
@@ -55,7 +74,7 @@ extension JSONElement {
     }
 
     /// Indicates if the receiver is a container element (dictionary or array).
-    var isContainer: Bool {
+    public var isContainer: Bool {
         switch self {
         case .object, .mutableObject, .array, .mutableArray:
             return true
@@ -65,7 +84,7 @@ extension JSONElement {
     }
 
     /// Indicates if the receiver is a mutable container (dictionary or array).
-    var isMutable: Bool {
+    public var isMutable: Bool {
         switch self {
         case .mutableObject, .mutableArray:
             return true
@@ -74,7 +93,7 @@ extension JSONElement {
         }
     }
 
-    init(any: Any) throws {
+    public init(any: Any) throws {
         switch any {
         case let dict as NSMutableDictionary:
             self = .mutableObject(value: dict)
@@ -98,7 +117,7 @@ extension JSONElement {
     /// Creates a new JSONElement with a copied raw value of the reciever.
     ///
     /// - Returns: A JSONElement representing a copy of the reciever.
-    func copy() -> JSONElement {
+    public func copy() -> JSONElement {
         switch rawValue {
         case let dict as NSDictionary:
             return try! JSONElement(any: dict.deepMutableCopy())
@@ -257,7 +276,7 @@ extension JSONElement {
     /// - Parameters:
     ///   - pointer: The JSON Pointer to evaluate.
     /// - Returns: The JSON Element pointed to by the JSON Pointer
-    func evaluate(pointer: JSONPointer) throws -> JSONElement {
+    public func evaluate(pointer: JSONPointer) throws -> JSONElement {
         return try pointer.components.reduce(self, { return try $0.value(for: $1) })
     }
 
@@ -266,7 +285,7 @@ extension JSONElement {
     /// - Parameters:
     ///   - value: A JSON Element holding a reference to the value to add.
     ///   - pointer: A JSON Pointer of the location to insert the value.
-    mutating func add(value: JSONElement, to pointer: JSONPointer) throws {
+    public mutating func add(value: JSONElement, to pointer: JSONPointer) throws {
         guard let parent = pointer.parent else {
             self = value
             return
@@ -280,7 +299,7 @@ extension JSONElement {
     ///
     /// - Parameters:
     ///   - pointer: A JSON Pointer of the location of the value to remove.
-    mutating func remove(at pointer: JSONPointer) throws {
+    public mutating func remove(at pointer: JSONPointer) throws {
         guard let parent = pointer.parent else {
             self = .null
             return
@@ -297,7 +316,7 @@ extension JSONElement {
     /// - Parameters:
     ///   - value: A JSON Element holding a reference to the value to add.
     ///   - pointer: A JSON Pointer of the location of the value to replace.
-    mutating func replace(value: JSONElement, to pointer: JSONPointer) throws {
+    public mutating func replace(value: JSONElement, to pointer: JSONPointer) throws {
         guard let parent = pointer.parent else {
             self = value
             return
@@ -313,7 +332,7 @@ extension JSONElement {
     /// - Parameters:
     ///   - from: The location of the JSON element to move.
     ///   - to: The location to move the value to.
-    mutating func move(from: JSONPointer, to: JSONPointer) throws {
+    public mutating func move(from: JSONPointer, to: JSONPointer) throws {
         guard let toParent = to.parent else {
             self = try evaluate(pointer: from)
             return
@@ -336,7 +355,7 @@ extension JSONElement {
     /// - Parameters:
     ///   - from: The location of the value to copy.
     ///   - to: The location to insert the new value.
-    mutating func copy(from: JSONPointer, to: JSONPointer) throws {
+    public mutating func copy(from: JSONPointer, to: JSONPointer) throws {
         guard let toParent = to.parent else {
             self = try evaluate(pointer: from)
             return
@@ -358,7 +377,7 @@ extension JSONElement {
     /// - Parameters:
     ///   - value: The expected value.
     ///   - pointer: The location of the value to test.
-    func test(value: JSONElement, at pointer: JSONPointer) throws {
+    public func test(value: JSONElement, at pointer: JSONPointer) throws {
         do {
             let found = try evaluate(pointer: pointer)
             if found != value {
@@ -377,24 +396,24 @@ extension JSONElement {
     ///
     /// - Parameters:
     ///   - operation: The operation to apply.
-    mutating func apply(_ operation: JSONPatch.Operation) throws {
+    public mutating func apply(_ operation: JSONPatch.Operation) throws {
         switch operation {
         case let .add(path, value):
-            try add(value: try JSONElement(any: value), to: path)
+            try add(value: value, to: path)
         case let .remove(path):
             try remove(at: path)
         case let .replace(path, value):
-            try replace(value: try JSONElement(any: value), to: path)
+            try replace(value: value, to: path)
         case let .move(from, path):
             try move(from: from, to: path)
         case let .copy(from, path):
             try copy(from: from, to: path)
         case let .test(path, value):
-            try test(value: try JSONElement(any: value), at: path)
+            try test(value: value, at: path)
         }
     }
 
-    mutating func apply(patch: JSONPatch, relativeTo path: JSONPointer? = nil) throws {
+    public mutating func apply(patch: JSONPatch, relativeTo path: JSONPointer? = nil) throws {
         if let path = path, let parent = path.parent {
             var parentElement = try makePathMutable(parent)
             var relativeRoot = try parentElement.value(for: path.components.last!)
@@ -417,7 +436,7 @@ extension JSONElement: Equatable {
     ///   - lhs: Left-hand side of the equality test.
     ///   - rhs: Right-hand side of the equality test.
     /// - Returns: true if lhs and rhs are structurally, otherwise false.
-    static func == (lhs: JSONElement, rhs: JSONElement) -> Bool {
+    public static func == (lhs: JSONElement, rhs: JSONElement) -> Bool {
         guard let lobj = lhs.rawValue as? JSONEquatable else {
             return false
         }
@@ -435,7 +454,7 @@ extension JSONSerialization {
     ///   - data: The JSON data to parse. See jsonObject(with:options:) for supported encodings.
     ///   - options: The reading options. See jsonObject(with:options:) for supported options.
     /// - Returns: The JSON Element representing the top-level element of the json document.
-    static func jsonElement(with data: Data, options: ReadingOptions) throws -> JSONElement {
+    public static func jsonElement(with data: Data, options: ReadingOptions) throws -> JSONElement {
         let jsonObject = try JSONSerialization.jsonObject(with: data, options: options)
         return try JSONElement(any: jsonObject)
     }
@@ -447,7 +466,7 @@ extension JSONSerialization {
     ///   - jsonElement: The top-level json element to generate data for.
     ///   - options: The wripting options for generating the json data.
     /// - Returns: A UTF-8 represention of the json document with the jsonElement as the root.
-    static func data(with jsonElement: JSONElement, options: WritingOptions = []) throws -> Data {
+    public static func data(with jsonElement: JSONElement, options: WritingOptions = []) throws -> Data {
         // JSONSerialization only supports writing top-level containers.
         switch jsonElement {
         case let .object(obj as NSObject),
