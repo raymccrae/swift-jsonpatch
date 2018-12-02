@@ -126,6 +126,33 @@ class JSONPatchTests: XCTestCase {
         }
     }
 
+    func testPatch() throws {
+        let source = """
+        {"a": "b"}
+        """
+        let target = """
+        {"c": "d", "z": "b"}
+        """
+
+        let s = try JSONSerialization.jsonElement(with: Data(source.utf8), options: [])
+        let t = try JSONSerialization.jsonElement(with: Data(target.utf8), options: [])
+        let patch = try JSONPatch(source: s, target: t)
+        print(patch)
+    }
+
+    func testPatchEncode() throws {
+        let patchjson = Data("""
+        [
+        {"op": "add", "path": "/a/b", "value": {"a": "b", "c": 0, "d": false}},
+        {"op": "copy", "from": "/a/b/", "path": "/a/d/"}
+        ]
+        """.utf8)
+
+        let decoder = JSONDecoder()
+        let patch = try decoder.decode(JSONPatch.self, from: patchjson)
+        let encoder = JSONEncoder()
+        let data = try encoder.encode(patch)
+        print(String(data: data, encoding: .utf8)!)
 //    func testAdd() throws {
 //        let sample = """
 //        {"foo": "bar"}
@@ -138,6 +165,6 @@ class JSONPatchTests: XCTestCase {
 //        let ptr = try JSONPointer(string: "")
 //        try json.replace(value: .object(value: ["baz": "qux"]), to: ptr)
 //        print(json)
-//    }
+    }
 
 }

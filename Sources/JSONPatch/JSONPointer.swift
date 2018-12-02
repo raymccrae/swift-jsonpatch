@@ -36,6 +36,9 @@ public struct JSONPointer {
 
 extension JSONPointer {
 
+    /// A json-pointer that represents the whole json document.
+    static let wholeDocument: JSONPointer = JSONPointer(components: [])
+
     /// A string representation of the json-pointer.
     public var string: String {
         guard !components.isEmpty else {
@@ -57,14 +60,17 @@ extension JSONPointer {
         }
     }
 
+    /// The path component of the receiver.
     public var lastComponent: String? {
         return components.last
     }
 
+    /// Determines if receiver represents the whole document.
     public var isWholeDocument: Bool {
         return components.isEmpty
     }
 
+    /// Returns a URI Fragment Identifier representation. See Section 6 of RFC 6901.
     public var fragment: String? {
         guard let s = string.addingPercentEncoding(withAllowedCharacters: .urlFragmentAllowed) else {
             return nil
@@ -107,6 +113,11 @@ extension JSONPointer {
         return value
     }
 
+    /// Escapes the characters required for the RFC 6901 standard.
+    ///
+    /// - Parameters:
+    ///   - unescaped: The unescaped string.
+    /// - Returns: The escaped string.
     public static func escape(_ unescaped: String) -> String {
         var value = unescaped
         value = value.replacingOccurrences(of: "~", with: "~0")
@@ -114,8 +125,22 @@ extension JSONPointer {
         return value
     }
 
+    /// Creates a new json-pointer based on the reciever with the given component appended.
+    ///
+    /// - Parameters:
+    ///   - component: A non-escaped path component.
+    /// - Returns: A json-pointer with the given component appended.
     func appended(withComponent component: String) -> JSONPointer {
         return JSONPointer(components: ArraySlice(components + [component]))
+    }
+
+    /// Creates a new json-pointer based on the reciever with the given index appended.
+    ///
+    /// - Parameters:
+    ///   - index: A path index.
+    /// - Returns: A json-pointer with the given component appended.
+    func appended(withIndex index: Int) -> JSONPointer {
+        return JSONPointer(components: ArraySlice(components + [String(index)]))
     }
 
 }
@@ -125,6 +150,11 @@ extension JSONPointer {
         return try! NSRegularExpression(pattern: "^(?:-|0|(?:[1-9][0-9]*))$", options: [])
     }()
 
+    /// Determines if the given path component represents a valid array index.
+    ///
+    /// - Parameters:
+    ///   - component: A path component.
+    /// - Returns: true if the given path component is a valid array index, otherwise false.
     static func isValidArrayIndex(_ component: String) -> Bool {
         let match = arrayIndexPattern.firstMatch(in: component,
                                                  options: [.anchored],
@@ -134,28 +164,30 @@ extension JSONPointer {
 }
 
 extension JSONPointer: CustomDebugStringConvertible {
-
     public var debugDescription: String {
         return "JSONPointer(string: \"\(string)\")"
     }
-
 }
 
 extension JSONPointer: Equatable {
-
+    /// Returns a Boolean value indicating whether two json-pointer are equal.
+    ///
+    /// - Parameters:
+    ///   - lhs: Left-hand side of the equality test.
+    ///   - rhs: Right-hand side of the equality test.
+    /// - Returns: true is the lhs is equal to the rhs.
     public static func == (lhs: JSONPointer, rhs: JSONPointer) -> Bool {
-        return lhs.string == rhs.string
+        return lhs.components == rhs.components
     }
 }
 
 extension JSONPointer: Hashable {
     public var hashValue: Int {
-        return string.hashValue
+        return components.hashValue
     }
 }
 
 extension JSONPointer: Collection {
-
     public var startIndex: Int {
         return components.startIndex
     }
@@ -171,5 +203,4 @@ extension JSONPointer: Collection {
     public subscript(index: Int) -> String {
         return components[index]
     }
-
 }

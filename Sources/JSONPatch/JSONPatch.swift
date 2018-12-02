@@ -26,7 +26,7 @@ import Foundation
 /// JSONSerialization.
 ///
 /// https://tools.ietf.org/html/rfc6902
-public class JSONPatch {
+public class JSONPatch: Codable {
 
     /// The mimetype for json-patch
     public static let mimetype = "application/json-patch+json"
@@ -44,6 +44,11 @@ public class JSONPatch {
 
     /// An array of json-patch operations that will be applied in sequence.
     public let operations: [JSONPatch.Operation]
+
+    /// A JSON Array represent of the receiver compatible with JSONSerialization.
+    public var jsonArray: NSArray {
+        return operations.map { $0.jsonObject } as NSArray
+    }
 
     /// Initializes a JSONPatch instance with an array of operations.
     ///
@@ -82,6 +87,25 @@ public class JSONPatch {
             throw JSONError.invalidPatchFormat
         }
         try self.init(jsonArray: jsonArray)
+    }
+
+    public required init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        operations = try container.decode([JSONPatch.Operation].self)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.singleValueContainer()
+        try container.encode(operations)
+    }
+
+    /// Returns a representation of the patch as UTF-8 encoded json.
+    ///
+    /// - Parameters:
+    ///   - option: The writing options.
+    /// - Returns: UTF-8 encoded json.
+    public func data(options: JSONSerialization.WritingOptions = []) throws -> Data {
+        return try JSONSerialization.data(withJSONObject: jsonArray, options: options)
     }
 
     /// Applies a json-patch to a target json document. Operations are applied
@@ -205,6 +229,36 @@ extension JSONPatch.Operation {
             throw JSONError.missingRequiredPatchField(op: op, index: index, field: field)
         }
         return value
+    }
+
+    var jsonObject: NSDictionary {
+        let dict = NSMutableDictionary()
+        switch self {
+        case let .add(path, value):
+            dict["op"] = "add"
+            dict["path"] = path.string
+            dict["value"] = value.rawValue
+        case let .remove(path):
+            dict["op"] = "remove"
+            dict["path"] = path.string
+        case let .replace(path, value):
+            dict["op"] = "replace"
+            dict["path"] = path.string
+            dict["value"] = value.rawValue
+        case let .move(from, path):
+            dict["op"] = "move"
+            dict["from"] = from.string
+            dict["path"] = path.string
+        case let .copy(from, path):
+            dict["op"] = "copy"
+            dict["from"] = from.string
+            dict["path"] = path.string
+        case let .test(path, value):
+            dict["op"] = "test"
+            dict["path"] = path.string
+            dict["value"] = value.rawValue
+        }
+        return dict
     }
 }
 

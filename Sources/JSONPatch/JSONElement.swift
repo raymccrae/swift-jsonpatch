@@ -93,6 +93,11 @@ extension JSONElement {
         }
     }
 
+    /// Initialize a JSONElement with that is compatable with JSONSerialization.
+    /// See JSONSerialization.isValidJSONObject for more details.
+    ///
+    /// - Parameters:
+    ///   - any: The raw value.
     public init(any: Any) throws {
         switch any {
         case let dict as NSMutableDictionary:
@@ -392,7 +397,7 @@ extension JSONElement {
         }
     }
 
-    /// Applies a json-patch operation to the reciever.
+    /// Applys a json-patch operation to the reciever.
     ///
     /// - Parameters:
     ///   - operation: The operation to apply.
@@ -413,6 +418,13 @@ extension JSONElement {
         }
     }
 
+    /// Applys a json-patch to the the reciever. If a relative path is given then
+    /// the json pointer is evaluated on the reciever, and then the patch is applied
+    /// on the evaluted element.
+    ///
+    /// - Parameters:
+    ///   - patch: The json-patch to be applied.
+    ///   - path:  If present then the patch is applied to the child element at the path.
     public mutating func apply(patch: JSONPatch, relativeTo path: JSONPointer? = nil) throws {
         if let path = path, let parent = path.parent {
             var parentElement = try makePathMutable(parent)
@@ -441,6 +453,32 @@ extension JSONElement: Equatable {
             return false
         }
         return lobj.isJSONEquals(to: rhs)
+    }
+
+    /// Determines if two json elements have equivalent types.
+    ///
+    /// - Parameters:
+    ///   - lhs: Left-hand side of the equivalent type test.
+    ///   - rhs: Right-hand side of the equivalent type test.
+    /// - Returns: true if lhs and rhs are of equivalent types, otherwise false.
+    public static func equivalentTypes(lhs: JSONElement, rhs: JSONElement) -> Bool {
+        switch (lhs, rhs) {
+        case (.object, .object),
+             (.object, .mutableObject),
+             (.mutableObject, .object),
+             (.mutableObject, .mutableObject),
+             (.array, .array),
+             (.array, .mutableArray),
+             (.mutableArray, .array),
+             (.mutableArray, .mutableArray),
+             (.string, .string),
+             (.null, .null):
+            return true
+        case (.number(let numl), .number(let numr)):
+            return numl.isBoolean == numr.isBoolean
+        default:
+            return false
+        }
     }
 
 }
