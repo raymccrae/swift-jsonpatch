@@ -50,14 +50,10 @@ extension JSONPointer {
     /// A JSON Pointer to the container of the element of the reciever, or nil if the reciever
     /// references the root element of the whole JSON document.
     public var parent: JSONPointer? {
-        switch components.count {
-        case 0:
+        guard !components.isEmpty else {
             return nil
-        case 1 where !components[0].isEmpty:
-            return JSONPointer(components: [""])
-        default:
-            return JSONPointer(components: components.dropLast())
         }
+        return JSONPointer(components: components.dropLast())
     }
 
     /// The path component of the receiver.
