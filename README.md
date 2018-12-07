@@ -8,7 +8,7 @@ JSONPatch is a a swift module implements json-patch [RFC6902](https://tools.ietf
 The implementation uses the [JSON Patch Tests](https://github.com/json-patch/json-patch-tests) project for unit tests to validate its correctness.
 
 # Release
-0.2 - Added Patch Generation & API Refinement.
+0.3 - Cocoapods support.
 
 # Usage
 
