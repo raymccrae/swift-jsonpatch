@@ -40,4 +40,23 @@ class JSONElementTests: XCTestCase {
         XCTAssertNotEqual(int42, double42_5)
     }
 
+    func testDecode() throws {
+        let json = Data("""
+        {
+            "string": "hello",
+            "int": 42,
+            "double": 4.2,
+            "boolean": true,
+            "array": [1, 2, 3],
+            "object": {"a": "b"}
+        }
+        """.utf8)
+
+        let decoder = JSONDecoder()
+        let jsonDecoded = try decoder.decode(JSONElement.self, from: json)
+        let jsonSerialization = try JSONSerialization.jsonElement(with: json, options: [])
+
+        XCTAssertEqual(jsonDecoded, jsonSerialization)
+    }
+
 }

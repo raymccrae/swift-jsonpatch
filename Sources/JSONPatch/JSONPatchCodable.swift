@@ -68,14 +68,15 @@ extension JSONElement: Codable {
         case .string(let value):
             try container.encode(value as String)
         case .number(let value):
-            try container.encode(value)
+            try container.encodeNSNumber(value)
         case .null:
             try container.encodeNil()
         case .array(let array), .mutableArray(let array as NSArray):
             let elements = try array.map { try JSONElement(any: $0) }
             try container.encode(elements)
         case .object(let dict), .mutableObject(let dict as NSDictionary):
-            try container.encode(dict)
+            var keyContainer = encoder.container(keyedBy: NSDictionaryCodingKey.self)
+            try keyContainer.encodeNSDictionary(dict)
         }
     }
 }
@@ -150,44 +151,27 @@ extension JSONPatch.Operation: Codable {
     }
 }
 
+extension SingleValueEncodingContainer {
 
-
-extension NSNumber: Encodable {
-    public func encode(to encoder: Encoder) throws {
-        var container = encoder.singleValueContainer()
-        switch CFNumberGetType(self) {
+    fileprivate mutating func encodeNSNumber(_ value: NSNumber) throws {
+        switch CFNumberGetType(value) {
         case .charType:
-            try container.encode(boolValue)
+            try encode(value.boolValue)
         case .cgFloatType, .doubleType, .float64Type:
-            try container.encode(doubleValue)
+            try encode(value.doubleValue)
         case .floatType, .float32Type:
-            try container.encode(floatValue)
+            try encode(value.floatValue)
         default:
-            try container.encode(int64Value)
+            try encode(value.int64Value)
         }
     }
 }
 
-fileprivate struct NSDictionaryCodingKey: CodingKey {
-    var stringValue: String
+extension KeyedEncodingContainer where Key == NSDictionaryCodingKey {
 
-    init?(stringValue: String) {
-        self.stringValue = stringValue
-    }
-
-    var intValue: Int?
-
-    init?(intValue: Int) {
-        self.stringValue = ""
-        self.intValue = intValue
-    }
-}
-
-extension NSDictionary: Encodable {
-    public func encode(to encoder: Encoder) throws {
-        var container = encoder.container(keyedBy: NSDictionaryCodingKey.self)
+    fileprivate mutating func encodeNSDictionary(_ value: NSDictionary) throws {
         var encodingError: Error? = nil
-        enumerateKeysAndObjects { (key, value, stop) in
+        value.enumerateKeysAndObjects { (key, value, stop) in
             do {
                 guard
                     let keyString = key as? String,
@@ -197,7 +181,7 @@ extension NSDictionary: Encodable {
                         return
                 }
                 let element = try JSONElement(any: value)
-                try container.encode(element, forKey: codingKey)
+                try encode(element, forKey: codingKey)
             } catch {
                 encodingError = error
                 stop.pointee = true
@@ -206,5 +190,19 @@ extension NSDictionary: Encodable {
         if let error = encodingError {
             throw error
         }
+    }
+}
+
+fileprivate struct NSDictionaryCodingKey: CodingKey {
+    var stringValue: String
+    var intValue: Int?
+
+    init?(stringValue: String) {
+        self.stringValue = stringValue
+    }
+
+    init?(intValue: Int) {
+        self.stringValue = ""
+        self.intValue = intValue
     }
 }
