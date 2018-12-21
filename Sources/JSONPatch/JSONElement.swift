@@ -137,6 +137,15 @@ extension JSONElement {
         }
     }
 
+    // MARK: - Container Helper Methods
+
+    /// Converts the receiver json element from a nonmutable container to a
+    /// mutable container. .object will become .mutableObject and .array becomes
+    /// .mutableArray. The raw value container will be copied to its mutable
+    /// equivalent (e.g. NSMutableArray & NSMutableDictionary). This does NOT cause
+    /// a deep copy. Only the reciever's raw value is copied to a new mutable container.
+    /// If a deep copy is required then see the copy method.
+    /// If the receiver is already mutable then this method has no effect.
     private mutating func makeMutable() {
         switch self {
         case .object(let dictionary):
@@ -153,6 +162,12 @@ extension JSONElement {
         }
     }
 
+    /// Converts the json elements along the path of evaluation for a json pointer into
+    /// mutable equivalents.
+    ///
+    /// - Parameters:
+    ///   - pointer: The json pointer to identify the path of json element containers.
+    /// - Returns: The last json element in the path.
     private mutating func makePathMutable(_ pointer: JSONPointer) throws -> JSONElement {
         if !self.isMutable {
             self.makeMutable()
@@ -207,7 +222,6 @@ extension JSONElement {
                 let index = Int(component),
                 0..<array.count ~= index else {
                     throw JSONError.referencesNonexistentValue
-
             }
             let element = array[index]
             let child = try JSONElement(any: element)
@@ -218,6 +232,15 @@ extension JSONElement {
         }
     }
 
+    /// Set a value in the receiver json element. This method is only valid for mutable
+    /// container json elements.
+    ///
+    /// - Parameters:
+    ///   - value: The new value to set.
+    ///   - component: The component of a json pointer.
+    ///   - replace: Only affects arrays. If true the given value replaces any previous
+    ///     value identified by component. Otherwise the give value is inserted into the
+    ///     array and all existing values following the insertion point are shifted up.
     private mutating func setValue(_ value: JSONElement, component: String, replace: Bool) throws {
         switch self {
         case .mutableObject(let dictionary):
@@ -235,7 +258,6 @@ extension JSONElement {
                     let index = Int(component),
                     0...array.count ~= index else {
                         throw JSONError.referencesNonexistentValue
-
                 }
                 if replace {
                     array.replaceObject(at: index, with: value.rawValue)
@@ -244,10 +266,19 @@ extension JSONElement {
                 }
             }
         default:
+            assertionFailure("Receiver is not a mutable container")
             break
         }
     }
 
+    /// Remove a value from the receiver json element. This method is only valid for
+    /// mutable container json elements. The given component of a json pointer identifies
+    /// the value to remove. If the value referenced by the component does not exist
+    /// then an error is thrown.
+    ///
+    /// - Parameters:
+    ///   - component: The component of a json pointer the identifies the value to remove.
+    /// - Throws: JSONError.referencesNonexistentValue if the value is not found.
     private mutating func removeValue(component: String) throws {
         switch self {
         case .mutableObject(let dictionary):
@@ -272,6 +303,7 @@ extension JSONElement {
                 array.removeObject(at: index)
             }
         default:
+            assertionFailure("Receiver is not a mutable container")
             break
         }
     }
@@ -284,6 +316,8 @@ extension JSONElement {
     public func evaluate(pointer: JSONPointer) throws -> JSONElement {
         return try pointer.reduce(self, { return try $0.value(for: $1) })
     }
+
+    // MARK:- Apply JSON Patch Operation Methods
 
     /// Adds the value to the JSON structure pointed to by the JSON Pointer.
     ///
