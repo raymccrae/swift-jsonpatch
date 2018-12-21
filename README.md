@@ -10,6 +10,42 @@ The implementation uses the [JSON Patch Tests](https://github.com/json-patch/jso
 # Release
 0.3 - Cocoapods support.
 
+# Installation
+
+## CocoaPods
+To use JSONPatch within your project. Add the "RMJSONPatch" into your `Podfile`:
+```ruby
+platform :ios, '8.0'
+use_frameworks!
+
+target '<Your Target Name>' do
+    pod 'PRJSONPatch', :git => 'https://github.com/raymccrae/swift-jsonpatch.git'
+end
+```
+
+## Swift Package Manager
+Add JSONPatch as a dependency to your projects Package.swift. For example: -
+
+```swift
+// swift-tools-version:4.0
+import PackageDescription
+
+let package = Package(
+    name: "YourProject",
+    dependencies: [
+        // Dependencies declare other packages that this package depends on.
+        .package(url: "https://github.com/raymccrae/swift-jsonpatch.git", .branch("master"))
+    ],
+    targets: [
+        // Targets are the basic building blocks of a package. A target can define a module or a test suite.
+        // Targets can depend on other targets in this package, and on products in packages which this package depends on.
+        .target(
+            name: "YourProject",
+            dependencies: ["JSONPatch"]),
+    ]
+)
+```
+
 # Usage
 
 ## Applying Patches
@@ -39,31 +75,6 @@ let targetData = Data("""
                       """.utf8)
 let patch = try! JSONPatch(source: sourceData, target: targetData)
 let patchData = try! patch.data()
-```
-
-# Installation
-
-## Swift Package Manager
-Add JSONPatch as a dependency to your projects Package.swift. For example: -
-
-```swift
-// swift-tools-version:4.0
-import PackageDescription
-
-let package = Package(
-    name: "YourProject",
-    dependencies: [
-        // Dependencies declare other packages that this package depends on.
-        .package(url: "https://github.com/raymccrae/swift-jsonpatch.git", .branch("master"))
-    ],
-    targets: [
-        // Targets are the basic building blocks of a package. A target can define a module or a test suite.
-        // Targets can depend on other targets in this package, and on products in packages which this package depends on.
-        .target(
-            name: "YourProject",
-            dependencies: ["JSONPatch"]),
-    ]
-)
 ```
 
 # License
