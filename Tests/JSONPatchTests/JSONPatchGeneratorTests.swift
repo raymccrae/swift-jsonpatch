@@ -40,11 +40,23 @@ class JSONPatchGeneratorTests: XCTestCase {
         XCTAssertEqual(source, target)
     }
 
-//    func testPerformanceExample() {
-//        // This is an example of a performance test case.
-//        self.measure {
-//            // Put the code you want to measure the time of here.
-//        }
-//    }
+    func testPerformanceGenerate() throws {
+        let source = try JSONSerialization.jsonElement(with: sourceData, options: [.mutableContainers])
+        let target = try JSONSerialization.jsonElement(with: targetData, options: [])
+
+        self.measure {
+            do {
+                _ = try JSONPatch(source: source, target: target)
+            } catch {
+                XCTFail("Error: \(error)")
+            }
+        }
+    }
+
+    func testNoDifferences() throws {
+        let source = try JSONSerialization.jsonElement(with: sourceData, options: [.mutableContainers])
+        let patch = try JSONPatch(source: source, target: source)
+        XCTAssertEqual(patch.operations.count, 0)
+    }
 
 }
