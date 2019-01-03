@@ -48,6 +48,8 @@ let package = Package(
 
 # Usage
 
+A more detailed explanation of JSONPatch is given in [Usage.md](Usage.md).
+
 ## Applying Patches
 ```swift
 import JSONPatch
