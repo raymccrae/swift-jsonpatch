@@ -249,10 +249,24 @@ extension JSONPatch.Operation {
 }
 
 extension JSONPatch {
+
+    /// Initializes a JSONPatch instance with all json-patch operations required to transform the source
+    /// json document into the target json document.
+    ///
+    /// - Parameters:
+    ///   - source: The source json document.
+    ///   - target: The target json document.
     public convenience init(source: JSONElement, target: JSONElement) throws {
         self.init(operations: try JSONPatchGenerator.generatePatch(source: source, target: target))
     }
 
+    /// Initialize a JSONPatch instance with all json-patch operations required to transform the source
+    /// json document into the target json document.
+    ///
+    /// - Parameters:
+    ///   - source: The source json document as data.
+    ///   - target: The target json document as data.
+    ///   - options: The JSONSerialization options for reading the source and target data.
     public convenience init(source: Data, target: Data, options: JSONSerialization.ReadingOptions = []) throws {
         let sourceJson = try JSONSerialization.jsonElement(with: source, options: options)
         let targetJson = try JSONSerialization.jsonElement(with: target, options: options)
