@@ -102,7 +102,7 @@ let patchedData = try! patch.apply(to: sourceData)
 Alternatively if you would rather work with parsed json elements from JSONSerialization. This approach has options to apply the patch inplace, which results in the apply process modifying (where possible) the original json document with the updates in the patch, avoiding making a copy of the original document.
 
 ```swift
-var jsonObject = try! JSONSerialization.jsonObject(with: data, options: [])
+var jsonObject = try! JSONSerialization.jsonObject(with: data, options: [.mutableContainers])
 let patch = ... // a json patch
 
 jsonObject = try! patch.apply(to: jsonObject, inplace: true)
@@ -134,7 +134,7 @@ let data = try! patch.data()
 
 ### Inserting a JSONPatch as a sub-element of a json document (JSONSerialization)
 
-If the json-patch is a sub-element of a larger json document, then a JSONSerialization complaint representation can be computed via the jsonArray property. This will create a json array compatible for JSONSerialization.
+If the json-patch is a sub-element of a larger json document, then a JSONSerialization complient representation can be computed via the jsonArray property. This will create a json array compatible for JSONSerialization.
 
 ```swift
 var dict: [String: Any] = [:]
