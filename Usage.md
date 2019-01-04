@@ -28,7 +28,7 @@ The data must be one of the supported encoding of [JSONSerialization](https://de
 
 ### Decoding a json-patch from a sub-element of a json document (JSONSerialization)
 
-The previous scenario works if your json-patch is availble in isolation, if the data represents only the json-patch. However, if the json-patch is a sub-element of a larger json document and your app is using JSONSerialization to parse that json document; then JSONPatch can be initialized from a NSArray. You will need to extact the subelement of the parsed json object to get the array representing the json-patch.
+The previous scenario works if your json-patch is availble in isolation, if the data represents only the json-patch. However, if the json-patch is a sub-element of a larger json document and your app is using JSONSerialization to parse that json document; then JSONPatch can be initialized from a NSArray. You will need to extract the subelement of the parsed json object to get the array representing the json-patch.
 
 ```swift
 do {
@@ -129,10 +129,12 @@ This section demonstrates a number of ways a JSONPatch instance can be serialize
 A JSONPatch instance can supply a serialized Data representation by calling the data method. Resulting in a UTF-8 data repesentation of the json-patch.
 
 ```swift
-let data = patch.data()
+let data = try! patch.data()
 ```
 
 ### Inserting a JSONPatch as a sub-element of a json document (JSONSerialization)
+
+If the json-patch is a sub-element of a larger json document, then a JSONSerialization complaint representation can be computed via the jsonArray property. This will create a json array compatible for JSONSerialization.
 
 ```swift
 var dict: [String: Any] = [:]
