@@ -178,9 +178,15 @@ extension JSONPointer: Equatable {
 }
 
 extension JSONPointer: Hashable {
+    #if swift(>=5.0)
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(components)
+    }
+    #else
     public var hashValue: Int {
         return components.hashValue
     }
+    #endif
 }
 
 extension JSONPointer: Collection {
