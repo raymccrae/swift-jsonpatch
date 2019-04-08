@@ -1,4 +1,4 @@
-# JSONPatch - Swift 4 json-patch implementation
+# JSONPatch - Swift 4/5 json-patch implementation
 [![Apache 2 License](https://img.shields.io/badge/license-Apache%202-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 [![Supported Platforms](https://img.shields.io/badge/platform-ios%20%7C%20macos%20%7C%20tvos-lightgrey.svg)](http://developer.apple.com)
 [![Build System](https://img.shields.io/badge/dependency%20management-spm%20%7C%20cocoapods-yellow.svg)](https://swift.org/package-manager/)
@@ -8,7 +8,7 @@ JSONPatch is a a swift module implements json-patch [RFC6902](https://tools.ietf
 The implementation uses the [JSON Patch Tests](https://github.com/json-patch/json-patch-tests) project for unit tests to validate its correctness.
 
 # Release
-1.0 - Feature complete.
+1.1 - Support Swift 5
 
 # Installation
 
