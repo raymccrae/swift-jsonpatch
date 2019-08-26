@@ -46,6 +46,12 @@ let package = Package(
 )
 ```
 
+## Carthage
+To use JSONPatch within your project, specify it in your `Cartfile`:
+```
+github "raymccrae/swift-jsonpatch" "v1.0.1"
+```
+
 # Usage
 
 A more detailed explanation of JSONPatch is given in [Usage.md](Usage.md).
