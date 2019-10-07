@@ -8,29 +8,18 @@ JSONPatch is a a swift module implements json-patch [RFC6902](https://tools.ietf
 The implementation uses the [JSON Patch Tests](https://github.com/json-patch/json-patch-tests) project for unit tests to validate its correctness.
 
 # Release
-1.1 - Support Swift 5
+1.0.2 - Support Swift 5
 
 # Installation
 
 ## CocoaPods
-To use JSONPatch within your project. Add the "RMJSONPatch" into your `Podfile`:
-```ruby
-platform :ios, '8.0'
-use_frameworks!
-
-target '<Your Target Name>' do
-    pod 'RMJSONPatch', :git => 'https://github.com/raymccrae/swift-jsonpatch.git'
-end
-```
+See [CocoaPods.md](Docs/CocoaPods.md)
 
 ## Swift Package Manager
 See [SPM.md](Docs/SPM.md)
 
 ## Carthage
-To use JSONPatch within your project, specify it in your `Cartfile`:
-```
-github "raymccrae/swift-jsonpatch" "v1.0.1"
-```
+See [Carthage.md](Docs/Carthage.md)
 
 # Usage
 
