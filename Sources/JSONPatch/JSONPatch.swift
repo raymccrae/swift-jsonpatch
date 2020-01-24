@@ -28,6 +28,13 @@ import Foundation
 /// https://tools.ietf.org/html/rfc6902
 public class JSONPatch: Codable {
 
+    /**
+     Default setting for ignoring non existent values (Default: false)
+     
+     When set to true, all JSONError.referencesNonexistentValue errors will be ignored
+     */
+    public static var ignoreNonexistentValues: Bool = false
+    
     /// The mimetype for json-patch
     public static let mimetype = "application/json-patch+json"
 
@@ -128,15 +135,17 @@ public class JSONPatch: Codable {
     ///              a patch inplace the result is not atomic, if an error occurs then the
     ///              json object may be left in a partial state. If false then a copy of
     ///              the json document is created and the patch applied to the copy.
+    ///   - ignoreNonexistentValues: if true, all references to non existent values will be ignored and the patch will continue applying all remaining operations
     /// - Returns: A transformed json document with the patch applied.
     public func apply(to jsonObject: Any,
                       relativeTo path: JSONPointer? = nil,
-                      inplace: Bool = true) throws -> Any {
+                      inplace: Bool = true,
+                      ignoreNonexistentValues: Bool = JSONPatch.ignoreNonexistentValues) throws -> Any {
         var jsonDocument = try JSONElement(any: jsonObject)
         if !inplace {
             jsonDocument = jsonDocument.copy()
         }
-        try jsonDocument.apply(patch: self, relativeTo: path)
+        try jsonDocument.apply(patch: self, relativeTo: path, ignoreNonexistentValues: ignoreNonexistentValues)
         return jsonDocument.rawValue
     }
 
@@ -151,15 +160,17 @@ public class JSONPatch: Codable {
     ///           If nil then the patch is applied directly to the whole json document.
     ///   - readingOptions: The options given to JSONSerialization to parse the json data.
     ///   - writingOptions: The options given to JSONSerialization to write the result to data.
+    ///   - ignoreNonexistentValues: if true, all references to non existent values will be ignored and the patch will continue applying all remaining operations
     /// - Returns: The transformed json document as data.
     public func apply(to data: Data,
                       relativeTo path: JSONPointer? = nil,
                       readingOptions: JSONSerialization.ReadingOptions = [.mutableContainers],
-                      writingOptions: JSONSerialization.WritingOptions = []) throws -> Data {
+                      writingOptions: JSONSerialization.WritingOptions = [],
+                      ignoreNonexistentValues: Bool = JSONPatch.ignoreNonexistentValues) throws -> Data {
         let jsonObject = try JSONSerialization.jsonObject(with: data,
                                                           options: readingOptions)
         var jsonElement = try JSONElement(any: jsonObject)
-        try jsonElement.apply(patch: self, relativeTo: path)
+        try jsonElement.apply(patch: self, relativeTo: path, ignoreNonexistentValues: ignoreNonexistentValues)
         let transformedData = try JSONSerialization.data(with: jsonElement,
                                                          options: writingOptions)
         return transformedData
@@ -300,4 +311,64 @@ extension JSONPatch: Equatable {
         return lhs.operations == rhs.operations
     }
 
+}
+
+// MARK: - Patch Codable
+
+public extension JSONPatch {
+    /**
+     Applies this patch on the specified Codable object
+
+     The originated object won't be changed, a new object will be returned with this patch applied on it
+
+     e.g.
+
+     ```swift
+     let patch = ... // get your JSONPatch from somewhere
+
+     let patchedDevice = try! patch.applied(to: self.device)
+     ```
+
+     - parameter object: The object to apply the patch on
+
+     - returns: A new object with the applied patch
+     */
+    func applied<T: Codable>(to object: T) throws -> T {
+        let data = try JSONEncoder().encode(object)
+        let patchedData = try self.apply(to: data)
+
+        return try JSONDecoder().decode(T.self, from: patchedData)
+    }
+
+    /**
+     Creates a patch from the source object to the target object
+
+     - note:
+     Generic use case would be that the `from` object is **an older** version of the `to` object.
+
+     e.g.:
+
+     ```swift
+     self.device.state.isPowered = false
+     var lastSent: Device = IOManager.send(self.device)
+
+     self.device.state.isPowered = true
+
+     let patch = try JSONPatch.createPatch(from: lastSent, to: self.device)
+
+     // Patch will now be a patch that changes
+     // the state's `isPowered` from false to true
+     ```
+
+     - parameter source: The source object
+     - parameter target: The target object
+
+     - returns: The JSONPatch to get from the source to the target object
+     */
+    static func createPatch<T: Codable>(from source: T, to target: T) throws -> JSONPatch {
+        let sourceData = try JSONEncoder().encode(source)
+        let targetData = try JSONEncoder().encode(target)
+
+        return try JSONPatch(source: sourceData, target: targetData)
+    }
 }
