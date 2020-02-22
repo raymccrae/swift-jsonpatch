@@ -16,7 +16,7 @@ Pod::Spec.new do |s|
   #
 
   s.name         = "RMJSONPatch"
-  s.version      = "1.0"
+  s.version      = "1.0.2"
   s.summary      = "JSONPatch is a swift library for applying and generating RFC-6902 compliant JSON patches."
   s.module_name  = "JSONPatch"
 
@@ -133,7 +133,7 @@ Pod::Spec.new do |s|
   #  you can include multiple dependencies to ensure it works.
 
   # s.requires_arc = true
-  s.swift_version = "4.2"
+  # s.swift_version = "4.2"
 
   # s.xcconfig = { "HEADER_SEARCH_PATHS" => "$(SDKROOT)/usr/include/libxml2" }
   # s.dependency "JSONKit", "~> 1.4"

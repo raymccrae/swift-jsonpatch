@@ -1,4 +1,4 @@
-# JSONPatch - Swift 4 json-patch implementation
+# JSONPatch - Swift 4/5 json-patch implementation
 [![Apache 2 License](https://img.shields.io/badge/license-Apache%202-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 [![Supported Platforms](https://img.shields.io/badge/platform-ios%20%7C%20macos%20%7C%20tvos-lightgrey.svg)](http://developer.apple.com)
 [![Build System](https://img.shields.io/badge/dependency%20management-spm%20%7C%20cocoapods-yellow.svg)](https://swift.org/package-manager/)
@@ -8,47 +8,22 @@ JSONPatch is a a swift module implements json-patch [RFC6902](https://tools.ietf
 The implementation uses the [JSON Patch Tests](https://github.com/json-patch/json-patch-tests) project for unit tests to validate its correctness.
 
 # Release
-1.0 - Feature complete.
+1.0.2 - Support Swift 5
 
 # Installation
 
 ## CocoaPods
-To use JSONPatch within your project. Add the "RMJSONPatch" into your `Podfile`:
-```ruby
-platform :ios, '8.0'
-use_frameworks!
-
-target '<Your Target Name>' do
-    pod 'RMJSONPatch', :git => 'https://github.com/raymccrae/swift-jsonpatch.git'
-end
-```
+See [CocoaPods.md](Docs/CocoaPods.md)
 
 ## Swift Package Manager
-Add JSONPatch as a dependency to your projects Package.swift. For example: -
+See [SPM.md](Docs/SPM.md)
 
-```swift
-// swift-tools-version:4.0
-import PackageDescription
-
-let package = Package(
-    name: "YourProject",
-    dependencies: [
-        // Dependencies declare other packages that this package depends on.
-        .package(url: "https://github.com/raymccrae/swift-jsonpatch.git", .branch("master"))
-    ],
-    targets: [
-        // Targets are the basic building blocks of a package. A target can define a module or a test suite.
-        // Targets can depend on other targets in this package, and on products in packages which this package depends on.
-        .target(
-            name: "YourProject",
-            dependencies: ["JSONPatch"]),
-    ]
-)
-```
+## Carthage
+See [Carthage.md](Docs/Carthage.md)
 
 # Usage
 
-A more detailed explanation of JSONPatch is given in [Usage.md](Usage.md).
+A more detailed explanation of JSONPatch is given in [Usage.md](Docs/Usage.md).
 
 ## Applying Patches
 ```swift
