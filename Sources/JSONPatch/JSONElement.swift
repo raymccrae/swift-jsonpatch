@@ -435,7 +435,7 @@ extension JSONElement {
     ///
     /// - Parameters:
     ///   - operation: The operation to apply.
-    public mutating func apply(_ operation: JSONPatch.Operation, ignoreNonexistentValues: Bool = false) throws {
+    public mutating func apply(_ operation: JSONPatch.Operation, options: [JSONPatch.Option] = []) throws {
         do {
             switch operation {
             case let .add(path, value):
@@ -451,13 +451,8 @@ extension JSONElement {
             case let .test(path, value):
                 try test(value: value, at: path)
             }
-        } catch {
-            if let error = error as? JSONError,
-                error == .referencesNonexistentValue && ignoreNonexistentValues {
-                // Don't throw, just continue
-            } else {
-                throw error
-            }
+        } catch JSONError.referencesNonexistentValue where options.contains(.ignoreNonexistentValues) {
+            // Don't throw, just continue
         }
     }
 
@@ -468,15 +463,15 @@ extension JSONElement {
     /// - Parameters:
     ///   - patch: The json-patch to be applied.
     ///   - path:  If present then the patch is applied to the child element at the path.
-    public mutating func apply(patch: JSONPatch, relativeTo path: JSONPointer? = nil, ignoreNonexistentValues: Bool = false) throws {
+    public mutating func apply(patch: JSONPatch, relativeTo path: JSONPointer? = nil, options: [JSONPatch.Option] = []) throws {
         if let path = path, let parent = path.parent {
             var parentElement = try makePathMutable(parent)
             var relativeRoot = try parentElement.value(for: path.lastComponent!)
-            try relativeRoot.apply(patch: patch, ignoreNonexistentValues: ignoreNonexistentValues)
+            try relativeRoot.apply(patch: patch, options: options)
             try parentElement.setValue(relativeRoot, component: path.lastComponent!, replace: true)
         } else {
             for operation in patch.operations {
-                try apply(operation, ignoreNonexistentValues: ignoreNonexistentValues)
+                try apply(operation, options: options)
             }
         }
     }

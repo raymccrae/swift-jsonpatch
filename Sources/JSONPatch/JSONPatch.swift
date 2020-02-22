@@ -27,16 +27,21 @@ import Foundation
 ///
 /// https://tools.ietf.org/html/rfc6902
 public class JSONPatch: Codable {
-
-    /**
-     Default setting for ignoring non existent values (Default: false)
-     
-     When set to true, all JSONError.referencesNonexistentValue errors will be ignored
-     */
-    public static var ignoreNonexistentValues: Bool = false
     
     /// The mimetype for json-patch
     public static let mimetype = "application/json-patch+json"
+
+    /// Options given to the patch process.
+    public enum Option {
+        /// By default the patch will be applied directly on to the json object
+        /// given, which is the most memory efficient option. However when applying
+        /// a patch directly the result is not atomic, if an error occurs then the
+        /// json object may be left in a partial state. If applyOnCopy is given then a copy of
+        /// the json document is created and the patch applied to the copy.
+        case applyOnCopy
+        /// All references to non existent values will be ignored and the patch will continue applying all remaining operations
+        case ignoreNonexistentValues
+    }
 
     /// A representation of the supported operations json-patch.
     /// (see [RFC6902], Section 4)
@@ -130,23 +135,46 @@ public class JSONPatch: Codable {
     ///   - jsonObject: The target json document to patch the patch to.
     ///   - path: Can be used to apply the patch to sub-element within the json document.
     ///           If nil then the patch is applied directly to the jsonObject given.
+    ///   - options: The options to be used when applying the patch.
+    /// - Returns: A transformed json document with the patch applied.
+    public func apply(to jsonObject: Any,
+                      relativeTo path: JSONPointer? = nil,
+                      options: [Option] = []) throws -> Any {
+        var jsonDocument = try JSONElement(any: jsonObject)
+        if options.contains(.applyOnCopy) {
+            jsonDocument = jsonDocument.copy()
+        }
+        try jsonDocument.apply(patch: self, relativeTo: path, options: options)
+        return jsonDocument.rawValue
+    }
+
+    /// Applies a json-patch to a target json document. Operations are applied
+    /// sequentially in the order they appear in the operations array.
+    /// Each operation in the sequence is applied to the target document;
+    /// the resulting document becomes the target of the next operation.
+    /// Evaluation continues until all operations are successfully applied
+    /// or until an error condition is encountered. If you are going to apply
+    /// the patch inplace then it can be more performant if the jsonObject
+    /// has been parsing using the .mutableContainers reading option on
+    /// JSONSerialization, as this will eliminate the need to make copies of sections
+    /// of the json document while applying the patch.
+    ///
+    /// - Parameters:
+    ///   - jsonObject: The target json document to patch the patch to.
+    ///   - path: Can be used to apply the patch to sub-element within the json document.
+    ///           If nil then the patch is applied directly to the jsonObject given.
     ///   - inplace: If true the patch will be applied directly on to the json object
     ///              given, which is the most memory efficient option. However when applying
     ///              a patch inplace the result is not atomic, if an error occurs then the
     ///              json object may be left in a partial state. If false then a copy of
     ///              the json document is created and the patch applied to the copy.
-    ///   - ignoreNonexistentValues: if true, all references to non existent values will be ignored and the patch will continue applying all remaining operations
     /// - Returns: A transformed json document with the patch applied.
+    @available(*, deprecated, message: "Use apply(to: relativeTo: options:) instead")
     public func apply(to jsonObject: Any,
                       relativeTo path: JSONPointer? = nil,
-                      inplace: Bool = true,
-                      ignoreNonexistentValues: Bool = JSONPatch.ignoreNonexistentValues) throws -> Any {
-        var jsonDocument = try JSONElement(any: jsonObject)
-        if !inplace {
-            jsonDocument = jsonDocument.copy()
-        }
-        try jsonDocument.apply(patch: self, relativeTo: path, ignoreNonexistentValues: ignoreNonexistentValues)
-        return jsonDocument.rawValue
+                      inplace: Bool) throws -> Any {
+        let options: [Option] = inplace ? [] : [.applyOnCopy]
+        return try apply(to: jsonObject, relativeTo: path, options: options)
     }
 
     /// Applies a json-patch to a target json document represented as data (see apply(to jsonObject:)
@@ -160,17 +188,17 @@ public class JSONPatch: Codable {
     ///           If nil then the patch is applied directly to the whole json document.
     ///   - readingOptions: The options given to JSONSerialization to parse the json data.
     ///   - writingOptions: The options given to JSONSerialization to write the result to data.
-    ///   - ignoreNonexistentValues: if true, all references to non existent values will be ignored and the patch will continue applying all remaining operations
+    ///   - patchOptions: The options to be used when applying the patch.
     /// - Returns: The transformed json document as data.
     public func apply(to data: Data,
                       relativeTo path: JSONPointer? = nil,
                       readingOptions: JSONSerialization.ReadingOptions = [.mutableContainers],
                       writingOptions: JSONSerialization.WritingOptions = [],
-                      ignoreNonexistentValues: Bool = JSONPatch.ignoreNonexistentValues) throws -> Data {
+                      patchOptions: [JSONPatch.Option] = []) throws -> Data {
         let jsonObject = try JSONSerialization.jsonObject(with: data,
                                                           options: readingOptions)
         var jsonElement = try JSONElement(any: jsonObject)
-        try jsonElement.apply(patch: self, relativeTo: path, ignoreNonexistentValues: ignoreNonexistentValues)
+        try jsonElement.apply(patch: self, relativeTo: path, options: patchOptions)
         let transformedData = try JSONSerialization.data(with: jsonElement,
                                                          options: writingOptions)
         return transformedData

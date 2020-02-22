@@ -212,41 +212,10 @@ class JSONPatchTests: XCTestCase {
         let patch = try JSONDecoder().decode(JSONPatch.self, from: patchData)
         
         do {
-            let _ = try patch.apply(to: objectData, ignoreNonexistentValues: true)
+            let _ = try patch.apply(to: objectData, patchOptions: [.ignoreNonexistentValues])
             // Succeeded
         } catch {
             XCTFail("Should not have thrown JSONError.referencesNonexistentValue, throwed: \(error)")
         }
     }
-    
-    func testDefaultIgnoreNonexistentValue() throws {
-        JSONPatch.ignoreNonexistentValues = true
-        
-        let objectData = Data("""
-        {
-            "prop1": "Value1",
-            "prop2": "Value2"
-        }
-        """.utf8)
-        
-        let patchData = Data("""
-        [
-            { "op": "replace", "path": "/prop3", "value": "Value3" },
-            { "op": "replace", "path": "/prop1", "value": "Value3" }
-        ]
-        """.utf8)
-        
-        let patch = try JSONDecoder().decode(JSONPatch.self, from: patchData)
-        
-        do {
-            let patchedData = try patch.apply(to: objectData)
-            let json = try JSONSerialization.jsonObject(with: patchedData, options: []) as? [String : Any]
-            XCTAssert((json?["prop1"] as? String) == "Value3", "Patch should have ignored the non existent value and continued patching remaining operations")
-        } catch {
-            XCTFail("Should not have thrown JSONError.referencesNonexistentValue, throwed: \(error)")
-        }
-        
-        JSONPatch.ignoreNonexistentValues = false
-    }
-
 }
