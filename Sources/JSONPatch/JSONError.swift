@@ -29,3 +29,48 @@ public enum JSONError: Error {
     case missingRequiredPatchField(op: String, index: Int, field: String)
     case patchTestFailed(path: String, expected: Any, found: Any?)
 }
+
+extension JSONError: Equatable {
+    public static func ==(lhs: JSONError, rhs: JSONError) -> Bool {
+        switch lhs {
+        case .invalidObjectType:
+            if case .invalidObjectType = rhs {
+                return true
+            }
+            
+        case .invalidPointerSyntax:
+            if case .invalidPointerSyntax = rhs {
+                return true
+            }
+            
+        case .invalidPatchFormat:
+            if case .invalidPatchFormat = rhs {
+                return true
+            }
+            
+        case .referencesNonexistentValue:
+            if case .referencesNonexistentValue = rhs {
+                return true
+            }
+            
+        case .unknownPatchOperation:
+            if case .unknownPatchOperation = rhs {
+                return true
+            }
+            
+        case .missingRequiredPatchField(let op1, let index1, let field1):
+            if case .missingRequiredPatchField(let op2, let index2, let field2) = rhs,
+                op1 == op2 && index1 == index2 && field1 == field2 {
+                return true
+            }
+            
+        case .patchTestFailed(let path1, _, _):
+            if case .patchTestFailed(let path2, _, _) = rhs,
+                path1 == path2 {
+                return true
+            }
+        }
+        
+        return false
+    }
+}

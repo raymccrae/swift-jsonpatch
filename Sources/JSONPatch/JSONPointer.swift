@@ -178,8 +178,8 @@ extension JSONPointer: Equatable {
 }
 
 extension JSONPointer: Hashable {
-    public var hashValue: Int {
-        return components.hashValue
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(components)
     }
 }
 
