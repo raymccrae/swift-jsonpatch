@@ -462,8 +462,15 @@ extension JSONElement {
     ///
     /// - Parameters:
     ///   - patch: The json-patch to be applied.
-    ///   - path:  If present then the patch is applied to the child element at the path.
-    public mutating func apply(patch: JSONPatch, relativeTo path: JSONPointer? = nil, options: [JSONPatch.ApplyOption] = []) throws {
+    ///   - options: The options for applying the patch.
+    public mutating func apply(patch: JSONPatch,
+                               options: [JSONPatch.ApplyOption] = []) throws {
+        var path: JSONPointer? = nil
+        for case let .relative(pointer) in options {
+            path = pointer
+            break
+        }
+
         if let path = path, let parent = path.parent {
             var parentElement = try makePathMutable(parent)
             var relativeRoot = try parentElement.value(for: path.lastComponent!)
@@ -474,6 +481,18 @@ extension JSONElement {
                 try apply(operation, options: options)
             }
         }
+    }
+
+    /// Applys a json-patch to the the reciever. If a relative path is given then
+    /// the json pointer is evaluated on the reciever, and then the patch is applied
+    /// on the evaluted element.
+    ///
+    /// - Parameters:
+    ///   - patch: The json-patch to be applied.
+    ///   - path: If present then the patch is applied to the child element at the path.
+    @available(*, deprecated, message: "Use apply(patch: options:) instead")
+    public mutating func apply(patch: JSONPatch, relativeTo path: JSONPointer) throws {
+        return try apply(patch: patch, options: [.relative(to: path)])
     }
 
 }

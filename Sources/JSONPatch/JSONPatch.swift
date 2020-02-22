@@ -32,7 +32,7 @@ public class JSONPatch: Codable {
     public static let mimetype = "application/json-patch+json"
 
     /// Options given to the patch process.
-    public enum ApplyOption {
+    public enum ApplyOption: Equatable {
         /// By default the patch will be applied directly on to the json object
         /// given, which is the most memory efficient option. However when applying
         /// a patch directly the result is not atomic, if an error occurs then the
@@ -41,6 +41,9 @@ public class JSONPatch: Codable {
         case applyOnCopy
         /// All references to non existent values will be ignored and the patch will continue applying all remaining operations
         case ignoreNonexistentValues
+        /// Can be used to apply the patch to sub-element within the json document. Using this option will cause the patch process to
+        /// treat the specified json element as the root element while applying the patch.
+        case relative(to: JSONPointer)
     }
 
     /// A representation of the supported operations json-patch.
@@ -138,13 +141,12 @@ public class JSONPatch: Codable {
     ///   - options: The options to be used when applying the patch.
     /// - Returns: A transformed json document with the patch applied.
     public func apply(to jsonObject: Any,
-                      relativeTo path: JSONPointer? = nil,
                       options: [ApplyOption] = []) throws -> Any {
         var jsonDocument = try JSONElement(any: jsonObject)
         if options.contains(.applyOnCopy) {
             jsonDocument = jsonDocument.copy()
         }
-        try jsonDocument.apply(patch: self, relativeTo: path, options: options)
+        try jsonDocument.apply(patch: self, options: options)
         return jsonDocument.rawValue
     }
 
@@ -169,12 +171,42 @@ public class JSONPatch: Codable {
     ///              json object may be left in a partial state. If false then a copy of
     ///              the json document is created and the patch applied to the copy.
     /// - Returns: A transformed json document with the patch applied.
-    @available(*, deprecated, message: "Use apply(to: relativeTo: options:) instead")
+    @available(*, deprecated, message: "Use apply(to: options:) instead")
     public func apply(to jsonObject: Any,
                       relativeTo path: JSONPointer? = nil,
                       inplace: Bool) throws -> Any {
-        let options: [ApplyOption] = inplace ? [] : [.applyOnCopy]
-        return try apply(to: jsonObject, relativeTo: path, options: options)
+        var options: [ApplyOption] = []
+        if let path = path {
+            options.append(.relative(to: path))
+        }
+        if !inplace {
+            options.append(.applyOnCopy)
+        }
+        return try apply(to: jsonObject, options: options)
+    }
+
+    /// Applies a json-patch to a target json document represented as data (see apply(to jsonObject:)
+    /// for more details. The given data will be parsed using JSONSerialization using the
+    /// reading options. If the patch was successfully applied with no errors, the result will be
+    /// serialized back to data with the writing options.
+    ///
+    /// - Parameters:
+    ///   - data: A data representation of the json document to apply the patch to.
+    ///   - readingOptions: The options given to JSONSerialization to parse the json data.
+    ///   - writingOptions: The options given to JSONSerialization to write the result to data.
+    ///   - applyingOptions: The options to be used when applying the patch.
+    /// - Returns: The transformed json document as data.
+    public func apply(to data: Data,
+                      readingOptions: JSONSerialization.ReadingOptions = [.mutableContainers],
+                      writingOptions: JSONSerialization.WritingOptions = [],
+                      applyingOptions: [JSONPatch.ApplyOption] = []) throws -> Data {
+        let jsonObject = try JSONSerialization.jsonObject(with: data,
+                                                          options: readingOptions)
+        var jsonElement = try JSONElement(any: jsonObject)
+        try jsonElement.apply(patch: self, options: applyingOptions)
+        let transformedData = try JSONSerialization.data(with: jsonElement,
+                                                         options: writingOptions)
+        return transformedData
     }
 
     /// Applies a json-patch to a target json document represented as data (see apply(to jsonObject:)
@@ -188,22 +220,21 @@ public class JSONPatch: Codable {
     ///           If nil then the patch is applied directly to the whole json document.
     ///   - readingOptions: The options given to JSONSerialization to parse the json data.
     ///   - writingOptions: The options given to JSONSerialization to write the result to data.
-    ///   - applyOptions: The options to be used when applying the patch.
     /// - Returns: The transformed json document as data.
+    @available(*, deprecated, message: "Use apply(to: readingOptions, writingOptions, applyingOptions:)")
     public func apply(to data: Data,
-                      relativeTo path: JSONPointer? = nil,
+                      relativeTo path: JSONPointer?,
                       readingOptions: JSONSerialization.ReadingOptions = [.mutableContainers],
-                      writingOptions: JSONSerialization.WritingOptions = [],
-                      applyOptions: [JSONPatch.ApplyOption] = []) throws -> Data {
-        let jsonObject = try JSONSerialization.jsonObject(with: data,
-                                                          options: readingOptions)
-        var jsonElement = try JSONElement(any: jsonObject)
-        try jsonElement.apply(patch: self, relativeTo: path, options: applyOptions)
-        let transformedData = try JSONSerialization.data(with: jsonElement,
-                                                         options: writingOptions)
-        return transformedData
+                      writingOptions: JSONSerialization.WritingOptions = []) throws -> Data {
+        var applyingOptions: [ApplyOption] = []
+        if let path = path {
+            applyingOptions.append(.relative(to: path))
+        }
+        return try apply(to: data,
+                         readingOptions: readingOptions,
+                         writingOptions: writingOptions,
+                         applyingOptions: applyingOptions)
     }
-
 }
 
 extension JSONPatch.Operation {
