@@ -212,7 +212,7 @@ class JSONPatchTests: XCTestCase {
         let patch = try JSONDecoder().decode(JSONPatch.self, from: patchData)
         
         do {
-            let _ = try patch.apply(to: objectData, patchOptions: [.ignoreNonexistentValues])
+            let _ = try patch.apply(to: objectData, applyOptions: [.ignoreNonexistentValues])
             // Succeeded
         } catch {
             XCTFail("Should not have thrown JSONError.referencesNonexistentValue, throwed: \(error)")

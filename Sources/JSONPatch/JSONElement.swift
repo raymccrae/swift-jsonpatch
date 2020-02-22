@@ -435,7 +435,7 @@ extension JSONElement {
     ///
     /// - Parameters:
     ///   - operation: The operation to apply.
-    public mutating func apply(_ operation: JSONPatch.Operation, options: [JSONPatch.Option] = []) throws {
+    public mutating func apply(_ operation: JSONPatch.Operation, options: [JSONPatch.ApplyOption] = []) throws {
         do {
             switch operation {
             case let .add(path, value):
@@ -463,7 +463,7 @@ extension JSONElement {
     /// - Parameters:
     ///   - patch: The json-patch to be applied.
     ///   - path:  If present then the patch is applied to the child element at the path.
-    public mutating func apply(patch: JSONPatch, relativeTo path: JSONPointer? = nil, options: [JSONPatch.Option] = []) throws {
+    public mutating func apply(patch: JSONPatch, relativeTo path: JSONPointer? = nil, options: [JSONPatch.ApplyOption] = []) throws {
         if let path = path, let parent = path.parent {
             var parentElement = try makePathMutable(parent)
             var relativeRoot = try parentElement.value(for: path.lastComponent!)
