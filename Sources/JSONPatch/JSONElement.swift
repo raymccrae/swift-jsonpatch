@@ -474,7 +474,8 @@ extension JSONElement {
         if let path = path, let parent = path.parent {
             var parentElement = try makePathMutable(parent)
             var relativeRoot = try parentElement.value(for: path.lastComponent!)
-            try relativeRoot.apply(patch: patch, options: options)
+            let relativeOptions = options.filter { if case .relative = $0 { return false } else { return true } }
+            try relativeRoot.apply(patch: patch, options: relativeOptions)
             try parentElement.setValue(relativeRoot, component: path.lastComponent!, replace: true)
         } else {
             for operation in patch.operations {

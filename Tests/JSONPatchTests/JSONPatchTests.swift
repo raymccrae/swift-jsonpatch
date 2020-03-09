@@ -126,45 +126,18 @@ class JSONPatchTests: XCTestCase {
         }
     }
 
-    func testPatch() throws {
+    func testPatchRelative() throws {
         let source = """
-        {"a": "b"}
+        {"a": {}}
         """
-        let target = """
-        {"c": "d", "z": "b"}
-        """
-
-        let s = try JSONSerialization.jsonElement(with: Data(source.utf8), options: [])
-        let t = try JSONSerialization.jsonElement(with: Data(target.utf8), options: [])
-        let patch = try JSONPatch(source: s, target: t)
-        print(patch)
-    }
-
-    func testPatchEncode() throws {
-        let patchjson = Data("""
-        [
-        {"op": "add", "path": "/a/b", "value": {"a": "b", "c": 0, "d": false}},
-        {"op": "copy", "from": "/a/b/", "path": "/a/d/"}
-        ]
+        let patch = Data("""
+        [{ "op": "add", "path": "/b", "value": "qux" }]
         """.utf8)
 
-        let decoder = JSONDecoder()
-        let patch = try decoder.decode(JSONPatch.self, from: patchjson)
-        let encoder = JSONEncoder()
-        let data = try encoder.encode(patch)
-        print(String(data: data, encoding: .utf8)!)
-//    func testAdd() throws {
-//        let sample = """
-//        {"foo": "bar"}
-//        """
-//
-//        let jsonObject = try JSONSerialization.jsonObject(with: Data(sample.utf8), options: [])
-//        var json = try JSONElement(any: jsonObject)
-//
-////        let from = try JSONPointer(string: "/foo")
-//        let ptr = try JSONPointer(string: "")
-//        try json.replace(value: .object(value: ["baz": "qux"]), to: ptr)
-//        print(json)
+        let p = try JSONPatch(data: patch)
+        let s = try JSONSerialization.jsonObject(with: Data(source.utf8), options: [])
+        let applied = try p.apply(to: s, options: [.relative(to: try JSONPointer(string: "/a"))])
+        XCTAssertEqual(applied as? NSDictionary, ["a":["b":"qux"]] as NSDictionary)
     }
 
     func testNonexistentValue() throws {
