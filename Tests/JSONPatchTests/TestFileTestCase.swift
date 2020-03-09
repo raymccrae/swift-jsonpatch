@@ -18,8 +18,6 @@
 //  limitations under the License.
 //
 
-import UIKit
-
 class TestFileTestCase: JSONFileTestCase {
     override class var filename: String? {
         return "tests"

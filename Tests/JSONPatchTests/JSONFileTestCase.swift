@@ -18,7 +18,6 @@
 //  limitations under the License.
 //
 
-import UIKit
 import XCTest
 @testable import JSONPatch
 
