@@ -144,7 +144,7 @@ public class JSONPatch: Codable {
                       options: [ApplyOption] = []) throws -> Any {
         var jsonDocument = try JSONElement(any: jsonObject)
         if options.contains(.applyOnCopy) {
-            jsonDocument = jsonDocument.copy()
+            jsonDocument = try jsonDocument.copy()
         }
         try jsonDocument.apply(patch: self, options: options)
         return jsonDocument.rawValue

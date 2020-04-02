@@ -59,4 +59,20 @@ class JSONElementTests: XCTestCase {
         XCTAssertEqual(jsonDecoded, jsonSerialization)
     }
 
+    func testCopy() throws {
+        do {
+            let int = try JSONElement(any: NSNumber(value: 0))
+            let string = try JSONElement(any: "Test")
+            let array = try JSONElement(any: [1, 2, 3])
+            let dict = try JSONElement(any: ["Test": 1])
+
+            let _ = try int.copy()
+            let _ = try string.copy()
+            let _ = try array.copy()
+            let _ = try dict.copy()
+        } catch {
+            XCTFail("Should not throw an exception, but caught: \(error)")
+        }
+    }
+
 }

@@ -122,7 +122,7 @@ extension JSONElement {
     /// Creates a new JSONElement with a copied raw value of the reciever.
     ///
     /// - Returns: A JSONElement representing a copy of the reciever.
-    public func copy() -> JSONElement {
+    public func copy() throws -> JSONElement {
         switch rawValue {
         case let dict as NSDictionary:
             return try! JSONElement(any: dict.deepMutableCopy())
@@ -131,9 +131,18 @@ extension JSONElement {
         case let null as NSNull:
             return try! JSONElement(any: null)
         case let obj as NSObject:
-            return try! JSONElement(any: obj.mutableCopy())
+            // Not all NSObject subclasses (e.g. NSNumber) supports mutableCopy
+            // and will crash the app (NSInvalidArgumentException)
+            // We could make a separate case above for NSNumber, but it's unknown
+            // whether there are more of such cases.
+            //
+            // Since JSONElement's `isMutable` will return `false` anyway for these
+            // types, we might just (normal-)copy the object instead
+            //
+            // See also: https://stackoverflow.com/questions/42074197/nsnumber-responds-positively-to-mutablecopy
+            return try! JSONElement(any: obj.copy())
         default:
-            fatalError("JSONElement contained non-NSObject")
+            throw JSONError.invalidObjectType
         }
     }
 
@@ -407,7 +416,7 @@ extension JSONElement {
         let fromParentElement = try makePathMutable(fromParent)
         var toParentElement = try makePathMutable(toParent)
         let value = try fromParentElement.value(for: from.lastComponent!)
-        let valueCopy = value.copy()
+        let valueCopy = try value.copy()
         try toParentElement.setValue(valueCopy, component: to.lastComponent!, replace: false)
     }
 
