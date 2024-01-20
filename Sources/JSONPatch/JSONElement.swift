@@ -158,7 +158,11 @@ extension JSONElement {
     private mutating func makeMutable() {
         switch self {
         case .object(let dictionary):
+            #if os(Linux)
+            let mutable = dictionary.mutableCopy() as! NSMutableDictionary
+            #else
             let mutable = NSMutableDictionary(dictionary: dictionary)
+            #endif
             self = .mutableObject(value: mutable)
         case .array(let array):
             let mutable = NSMutableArray(array: array)

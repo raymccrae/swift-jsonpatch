@@ -26,7 +26,11 @@ protocol JSONEquatable {
 
 extension NSNumber: JSONEquatable {
     var isBoolean: Bool {
+        #if os(Linux)
+        return objCType.pointee == 0x63 // character code for 'c'
+        #else
         return CFNumberGetType(self) == .charType
+        #endif
     }
 
     func isJSONEquals(to element: JSONElement) -> Bool {
