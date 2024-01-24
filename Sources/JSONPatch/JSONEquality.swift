@@ -59,6 +59,12 @@ extension NSString: JSONEquatable {
     }
 }
 
+extension String: JSONEquatable {
+    func isJSONEquals(to element: JSONElement) -> Bool {
+        return (self as NSString).isJSONEquals(to: element)
+    }
+}
+
 extension NSNull: JSONEquatable {
     func isJSONEquals(to element: JSONElement) -> Bool {
         guard case .null = element else {
@@ -89,6 +95,12 @@ extension NSArray: JSONEquatable {
     }
 }
 
+extension Array: JSONEquatable {
+    func isJSONEquals(to element: JSONElement) -> Bool {
+        return (self as NSArray).isJSONEquals(to: element)
+    }
+}
+
 extension NSDictionary: JSONEquatable {
     func isJSONEquals(to element: JSONElement) -> Bool {
         switch element {
@@ -110,5 +122,11 @@ extension NSDictionary: JSONEquatable {
         default:
             return false
         }
+    }
+}
+
+extension Dictionary: JSONEquatable {
+    func isJSONEquals(to element: JSONElement) -> Bool {
+        return (self as NSDictionary).isJSONEquals(to: element)
     }
 }
