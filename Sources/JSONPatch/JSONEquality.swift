@@ -26,7 +26,11 @@ protocol JSONEquatable {
 
 extension NSNumber: JSONEquatable {
     var isBoolean: Bool {
+        #if os(Linux)
+        return objCType.pointee == 0x63 // character code for 'c'
+        #else
         return CFNumberGetType(self) == .charType
+        #endif
     }
 
     func isJSONEquals(to element: JSONElement) -> Bool {
@@ -52,6 +56,12 @@ extension NSString: JSONEquatable {
         }
 
         return isEqual(str)
+    }
+}
+
+extension String: JSONEquatable {
+    func isJSONEquals(to element: JSONElement) -> Bool {
+        return (self as NSString).isJSONEquals(to: element)
     }
 }
 
@@ -85,6 +95,12 @@ extension NSArray: JSONEquatable {
     }
 }
 
+extension Array: JSONEquatable {
+    func isJSONEquals(to element: JSONElement) -> Bool {
+        return (self as NSArray).isJSONEquals(to: element)
+    }
+}
+
 extension NSDictionary: JSONEquatable {
     func isJSONEquals(to element: JSONElement) -> Bool {
         switch element {
@@ -106,5 +122,11 @@ extension NSDictionary: JSONEquatable {
         default:
             return false
         }
+    }
+}
+
+extension Dictionary: JSONEquatable {
+    func isJSONEquals(to element: JSONElement) -> Bool {
+        return (self as NSDictionary).isJSONEquals(to: element)
     }
 }

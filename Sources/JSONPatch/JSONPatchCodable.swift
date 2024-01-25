@@ -154,6 +154,18 @@ extension JSONPatch.Operation: Codable {
 extension SingleValueEncodingContainer {
 
     fileprivate mutating func encodeNSNumber(_ value: NSNumber) throws {
+        #if os(Linux)
+        switch value.objCType.pointee {
+        case 0x63:
+            try encode(value.boolValue)
+        case 0x64, 0x71, 0x51, 0x4C:
+            try encode(value.doubleValue)
+        case 0x66, 0x49:
+            try encode(value.floatValue)
+        default:
+            try encode(value.int64Value)
+        }
+        #else
         switch CFNumberGetType(value) {
         case .charType:
             try encode(value.boolValue)
@@ -164,6 +176,7 @@ extension SingleValueEncodingContainer {
         default:
             try encode(value.int64Value)
         }
+        #endif
     }
 }
 

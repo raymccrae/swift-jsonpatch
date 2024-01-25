@@ -16,7 +16,7 @@ Pod::Spec.new do |s|
   #
 
   s.name         = "RMJSONPatch"
-  s.version      = "1.0.5"
+  s.version      = "1.0.6"
   s.summary      = "JSONPatch is a swift library for applying and generating RFC-6902 compliant JSON patches."
   s.module_name  = "JSONPatch"
 

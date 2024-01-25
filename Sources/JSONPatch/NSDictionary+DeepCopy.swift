@@ -26,6 +26,20 @@ extension NSDictionary {
         let result = NSMutableDictionary()
 
         self.enumerateKeysAndObjects { (key, value, stop) in
+            #if os(Linux)
+            switch value {
+            case let array as NSArray:
+                result.setObject(array.deepMutableCopy(), forKey: key as! NSString)
+            case let dict as NSDictionary:
+                result.setObject(dict.deepMutableCopy(), forKey: key as! NSString)
+            case let str as NSMutableString:
+                result.setObject(str, forKey: key as! NSString)
+            case let obj as NSObject:
+                result.setObject(obj.copy(), forKey: key as! NSString)
+            default:
+                result.setObject(value, forKey: key as! NSString)
+            }
+            #else
             switch value {
             case let array as NSArray:
                 result[key] = array.deepMutableCopy()
@@ -38,6 +52,7 @@ extension NSDictionary {
             default:
                 result[key] = value
             }
+            #endif
         }
 
         return result
