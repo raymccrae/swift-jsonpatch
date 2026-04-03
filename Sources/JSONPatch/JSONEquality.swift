@@ -81,8 +81,8 @@ extension NSArray: JSONEquatable {
         case let .array(arr) where arr.count == count,
              let .mutableArray(arr as NSArray) where arr.count == count:
             for index in 0..<count {
-                let selfItem = self[index] as! JSONEquatable
-                let arrItem = try! JSONElement(any: arr[index])
+                guard let selfItem = self[index] as? JSONEquatable else { return false }
+                guard let arrItem = try? JSONElement(any: arr[index]) else { return false }
 
                 if !selfItem.isJSONEquals(to: arrItem) {
                     return false
@@ -113,7 +113,7 @@ extension NSDictionary: JSONEquatable {
                     let dictElement = try? JSONElement(any: dictValue) else {
                     return false
                 }
-                let selfValue = self[key] as! JSONEquatable
+                guard let selfValue = self[key] as? JSONEquatable else { return false }
                 if !selfValue.isJSONEquals(to: dictElement) {
                     return false
                 }

@@ -29,15 +29,15 @@ extension NSDictionary {
             #if os(Linux)
             switch value {
             case let array as NSArray:
-                result.setObject(array.deepMutableCopy(), forKey: key as! NSString)
+                result.setObject(array.deepMutableCopy(), forKey: (key as? NSString) ?? String(describing: key) as NSString)
             case let dict as NSDictionary:
-                result.setObject(dict.deepMutableCopy(), forKey: key as! NSString)
+                result.setObject(dict.deepMutableCopy(), forKey: (key as? NSString) ?? String(describing: key) as NSString)
             case let str as NSMutableString:
-                result.setObject(str, forKey: key as! NSString)
+                result.setObject(str, forKey: (key as? NSString) ?? String(describing: key) as NSString)
             case let obj as NSObject:
-                result.setObject(obj.copy(), forKey: key as! NSString)
+                result.setObject(obj.copy(), forKey: (key as? NSString) ?? String(describing: key) as NSString)
             default:
-                result.setObject(value, forKey: key as! NSString)
+                result.setObject(value, forKey: (key as? NSString) ?? String(describing: key) as NSString)
             }
             #else
             switch value {

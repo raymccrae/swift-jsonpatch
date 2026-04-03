@@ -125,11 +125,11 @@ extension JSONElement {
     public func copy() throws -> JSONElement {
         switch rawValue {
         case let dict as NSDictionary:
-            return try! JSONElement(any: dict.deepMutableCopy())
+            return try JSONElement(any: dict.deepMutableCopy())
         case let arr as NSArray:
-            return try! JSONElement(any: arr.deepMutableCopy())
+            return try JSONElement(any: arr.deepMutableCopy())
         case let null as NSNull:
-            return try! JSONElement(any: null)
+            return try JSONElement(any: null)
         case let obj as NSObject:
             // Not all NSObject subclasses (e.g. NSNumber) supports mutableCopy
             // and will crash the app (NSInvalidArgumentException)
@@ -140,7 +140,7 @@ extension JSONElement {
             // types, we might just (normal-)copy the object instead
             //
             // See also: https://stackoverflow.com/questions/42074197/nsnumber-responds-positively-to-mutablecopy
-            return try! JSONElement(any: obj.copy())
+            return try JSONElement(any: obj.copy())
         default:
             throw JSONError.invalidObjectType
         }
@@ -159,7 +159,7 @@ extension JSONElement {
         switch self {
         case .object(let dictionary):
             #if os(Linux)
-            let mutable = dictionary.mutableCopy() as! NSMutableDictionary
+            guard let mutable = dictionary.mutableCopy() as? NSMutableDictionary else { return }
             #else
             let mutable = NSMutableDictionary(dictionary: dictionary)
             #endif
