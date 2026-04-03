@@ -142,9 +142,6 @@ extension JSONPointer {
 }
 
 extension JSONPointer {
-    private static let arrayIndexPattern: NSRegularExpression = {
-        return try! NSRegularExpression(pattern: "^(?:-|0|(?:[1-9][0-9]*))$", options: [])
-    }()
 
     /// Determines if the given path component represents a valid array index.
     ///
@@ -152,10 +149,36 @@ extension JSONPointer {
     ///   - component: A path component.
     /// - Returns: true if the given path component is a valid array index, otherwise false.
     static func isValidArrayIndex(_ component: String) -> Bool {
-        let match = arrayIndexPattern.firstMatch(in: component,
-                                                 options: [.anchored],
-                                                 range: NSRange(location: 0, length: component.utf16.count))
-        return match != nil
+        // Special case for array append
+        if component == "-" {
+            return true
+        }
+        
+        // Empty string is invalid
+        if component.isEmpty {
+            return false
+        }
+        
+        // Check for leading zero (only "0" is allowed, not "00", "01", etc.)
+        if component.hasPrefix("0") {
+            return component == "0"
+        }
+        
+        // Must start with 1-9 and contain only digits
+        guard let firstChar = component.first,
+              firstChar.isNumber,
+              firstChar != "0" else {
+            return false
+        }
+        
+        // All remaining characters must be digits
+        for char in component.dropFirst() {
+            if !char.isNumber {
+                return false
+            }
+        }
+        
+        return true
     }
 }
 
