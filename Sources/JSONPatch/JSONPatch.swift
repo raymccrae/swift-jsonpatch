@@ -375,23 +375,21 @@ extension JSONPatch: Equatable {
 // MARK: - Patch Codable
 
 public extension JSONPatch {
-    /**
-     Applies this patch on the specified Codable object
-
-     The originated object won't be changed, a new object will be returned with this patch applied on it
-
-     e.g.
-
-     ```swift
-     let patch = ... // get your JSONPatch from somewhere
-
-     let patchedDevice = try! patch.applied(to: self.device)
-     ```
-
-     - parameter object: The object to apply the patch on
-
-     - returns: A new object with the applied patch
-     */
+    /// Applies this patch on the specified Codable object
+    ///
+    /// The originated object won't be changed, a new object will be returned with this patch applied on it
+    ///
+    /// e.g.
+    ///
+    /// ```swift
+    /// let patch = ... // get your JSONPatch from somewhere
+    ///
+    /// let patchedDevice = try! patch.applied(to: self.device)
+    /// ```
+    ///
+    /// - parameter object: The object to apply the patch on
+    ///
+    /// - returns: A new object with the applied patch
     func applied<T: Codable>(to object: T) throws -> T {
         let data = try JSONEncoder().encode(object)
         let patchedData = try self.apply(to: data)
@@ -399,31 +397,29 @@ public extension JSONPatch {
         return try JSONDecoder().decode(T.self, from: patchedData)
     }
 
-    /**
-     Creates a patch from the source object to the target object
-
-     - note:
-     Generic use case would be that the `from` object is **an older** version of the `to` object.
-
-     e.g.:
-
-     ```swift
-     self.device.state.isPowered = false
-     var lastSent: Device = IOManager.send(self.device)
-
-     self.device.state.isPowered = true
-
-     let patch = try JSONPatch.createPatch(from: lastSent, to: self.device)
-
-     // Patch will now be a patch that changes
-     // the state's `isPowered` from false to true
-     ```
-
-     - parameter source: The source object
-     - parameter target: The target object
-
-     - returns: The JSONPatch to get from the source to the target object
-     */
+    /// Creates a patch from the source object to the target object
+    ///
+    /// - note:
+    /// Generic use case would be that the `from` object is **an older** version of the `to` object.
+    ///
+    /// e.g.:
+    ///
+    /// ```swift
+    /// self.device.state.isPowered = false
+    /// var lastSent: Device = IOManager.send(self.device)
+    ///
+    /// self.device.state.isPowered = true
+    ///
+    /// let patch = try JSONPatch.createPatch(from: lastSent, to: self.device)
+    ///
+    /// // Patch will now be a patch that changes
+    /// // the state's `isPowered` from false to true
+    /// ```
+    ///
+    /// - parameter source: The source object
+    /// - parameter target: The target object
+    ///
+    /// - returns: The JSONPatch to get from the source to the target object
     static func createPatch<T: Codable>(from source: T, to target: T) throws -> JSONPatch {
         let sourceData = try JSONEncoder().encode(source)
         let targetData = try JSONEncoder().encode(target)
