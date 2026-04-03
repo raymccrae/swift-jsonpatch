@@ -18,12 +18,13 @@
 //  limitations under the License.
 //
 
-import XCTest
+import Foundation
+import Testing
 @testable import JSONPatch
 
-class JSONElementTests: XCTestCase {
+struct JSONElementTests {
 
-    func testNumericEquality() throws {
+    @Test func testNumericEquality() throws {
         let boolFalse = try JSONElement(any: NSNumber(value: false))
         let int0 = try JSONElement(any: NSNumber(value: 0))
         let double0 = try JSONElement(any: NSNumber(value: 0.0))
@@ -31,16 +32,16 @@ class JSONElementTests: XCTestCase {
         let double42 = try JSONElement(any: NSNumber(value: 42.0))
         let double42_5 = try JSONElement(any: NSNumber(value: 42.5))
 
-        XCTAssertNotEqual(boolFalse, int0)
-        XCTAssertNotEqual(boolFalse, double0)
+        #expect(boolFalse != int0)
+        #expect(boolFalse != double0)
 
-        XCTAssertEqual(int0, double0)
-        XCTAssertEqual(int42, double42)
+        #expect(int0 == double0)
+        #expect(int42 == double42)
 
-        XCTAssertNotEqual(int42, double42_5)
+        #expect(int42 != double42_5)
     }
 
-    func testDecode() throws {
+    @Test func testDecode() throws {
         let json = Data("""
         {
             "string": "hello",
@@ -56,10 +57,10 @@ class JSONElementTests: XCTestCase {
         let jsonDecoded = try decoder.decode(JSONElement.self, from: json)
         let jsonSerialization = try JSONSerialization.jsonElement(with: json, options: [])
 
-        XCTAssertEqual(jsonDecoded, jsonSerialization)
+        #expect(jsonDecoded == jsonSerialization)
     }
 
-    func testCopy() throws {
+    @Test func testCopy() throws {
         do {
             let int = try JSONElement(any: NSNumber(value: 0))
             let string = try JSONElement(any: "Test")
@@ -71,7 +72,7 @@ class JSONElementTests: XCTestCase {
             let _ = try array.copy()
             let _ = try dict.copy()
         } catch {
-            XCTFail("Should not throw an exception, but caught: \(error)")
+            Issue.record("Should not throw an exception, but caught: \(error)")
         }
     }
 

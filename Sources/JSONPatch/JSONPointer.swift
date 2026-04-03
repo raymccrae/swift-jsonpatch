@@ -22,7 +22,7 @@ import Foundation
 
 /// A JSON Pointer implementation, based on RFC 6901.
 /// https://tools.ietf.org/html/rfc6901
-public struct JSONPointer {
+public struct JSONPointer: Sendable {
 
     /// An array of the unescaped components of the json-pointer.
     private let components: ArraySlice<String>

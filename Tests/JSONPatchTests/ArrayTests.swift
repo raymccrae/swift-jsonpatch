@@ -6,39 +6,40 @@
 //  Copyright © 2018 Raymond McCrae. All rights reserved.
 //
 
-import XCTest
+import Foundation
+import Testing
 @testable import JSONPatch
 
-class ArrayTests: XCTestCase {
+struct ArrayTests {
 
-    func testLevel1DeepCopy() {
+    @Test func testLevel1DeepCopy() {
         let a = NSArray(array: ["a", "b", "c"])
         let b = a.deepMutableCopy()
-        XCTAssertEqual(b.count, 3)
-        XCTAssertEqual(b[0] as? String, "a")
-        XCTAssertEqual(b[1] as? String, "b")
-        XCTAssertEqual(b[2] as? String, "c")
+        #expect(b.count == 3)
+        #expect(b[0] as? String == "a")
+        #expect(b[1] as? String == "b")
+        #expect(b[2] as? String == "c")
     }
 
-    func testLevel2DeepCopy() {
+    @Test func testLevel2DeepCopy() {
         let a = NSMutableArray(array: ["a", "b", "c"])
         let b = NSMutableArray(array: [a])
         let c = b.deepMutableCopy()
         b.add("d")
         a.add("e")
 
-        XCTAssertEqual(c.count, 1)
+        #expect(c.count == 1)
         guard let d = c[0] as? NSMutableArray else {
-            XCTFail()
+            Issue.record("Expected NSMutableArray")
             return
         }
-        XCTAssertEqual(d.count, 3)
-        XCTAssertEqual(d[0] as? String, "a")
-        XCTAssertEqual(d[1] as? String, "b")
-        XCTAssertEqual(d[2] as? String, "c")
+        #expect(d.count == 3)
+        #expect(d[0] as? String == "a")
+        #expect(d[1] as? String == "b")
+        #expect(d[2] as? String == "c")
     }
 
-    func testLevel3DeepCopy() {
+    @Test func testLevel3DeepCopy() {
         let a = NSMutableArray(array: ["a", "b", "c"])
         let b = NSMutableArray(array: [a])
         let c = NSMutableArray(array: [b])
@@ -47,46 +48,46 @@ class ArrayTests: XCTestCase {
         a.add("e")
         c.add("f")
 
-        XCTAssertEqual(d.count, 1)
+        #expect(d.count == 1)
         guard let e = d[0] as? NSMutableArray else {
-            XCTFail()
+            Issue.record("Expected NSMutableArray")
             return
         }
-        XCTAssertEqual(e.count, 1)
+        #expect(e.count == 1)
         guard let f = e[0] as? NSMutableArray else {
-            XCTFail()
+            Issue.record("Expected NSMutableArray")
             return
         }
 
-        XCTAssertEqual(f.count, 3)
-        XCTAssertEqual(f[0] as? String, "a")
-        XCTAssertEqual(f[1] as? String, "b")
-        XCTAssertEqual(f[2] as? String, "c")
+        #expect(f.count == 3)
+        #expect(f[0] as? String == "a")
+        #expect(f[1] as? String == "b")
+        #expect(f[2] as? String == "c")
     }
 
-    func testDictDeepCopy() {
+    @Test func testDictDeepCopy() {
         let dict = NSMutableDictionary(dictionary: ["a": "1"])
         let array = NSMutableArray(array: [dict])
         let copy = array.deepMutableCopy()
         array.add("b")
         dict["b"] = "2"
 
-        XCTAssertEqual(copy.count, 1)
+        #expect(copy.count == 1)
         guard let copyDict = copy[0] as? NSMutableDictionary else {
-            XCTFail()
+            Issue.record("Expected NSMutableDictionary")
             return
         }
-        XCTAssertEqual(copyDict.count, 1)
-        XCTAssertEqual(copyDict["a"] as? String, "1")
+        #expect(copyDict.count == 1)
+        #expect(copyDict["a"] as? String == "1")
     }
 
-    func testStringDeepCopy() {
+    @Test func testStringDeepCopy() {
         let array = NSMutableArray(array: [NSMutableString(string: "1")])
         let copy = array.deepMutableCopy()
         (array[0] as! NSMutableString).setString("2")
 
-        XCTAssertEqual(copy.count, 1)
-        XCTAssertEqual(copy[0] as? String, "1")
+        #expect(copy.count == 1)
+        #expect(copy[0] as? String == "1")
     }
 
 }

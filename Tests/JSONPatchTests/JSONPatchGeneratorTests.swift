@@ -18,10 +18,11 @@
 //  limitations under the License.
 //
 
-import XCTest
+import Foundation
+import Testing
 @testable import JSONPatch
 
-class JSONPatchGeneratorTests: XCTestCase {
+struct JSONPatchGeneratorTests {
 
     static let sourceURL = Bundle.test.url(forResource: "bigexample1", withExtension: "json")!
     static let targetURL = Bundle.test.url(forResource: "bigexample2", withExtension: "json")!
@@ -29,34 +30,30 @@ class JSONPatchGeneratorTests: XCTestCase {
     var sourceData: Data { return try! Data(contentsOf: JSONPatchGeneratorTests.sourceURL) }
     var targetData: Data { return try! Data(contentsOf: JSONPatchGeneratorTests.targetURL) }
 
-    func testBigPatch() throws {
+    @Test func testBigPatch() throws {
         var source = try JSONSerialization.jsonElement(with: sourceData, options: [.mutableContainers])
         let target = try JSONSerialization.jsonElement(with: targetData, options: [])
         let patch = try JSONPatch(source: source, target: target)
 
         try source.apply(patch: patch)
 
-        XCTAssertFalse(patch.operations.isEmpty)
-        XCTAssertEqual(source, target)
+        #expect(!patch.operations.isEmpty)
+        #expect(source == target)
     }
 
-    func testPerformanceGenerate() throws {
+    @Test func testPerformanceGenerate() throws {
         let source = try JSONSerialization.jsonElement(with: sourceData, options: [.mutableContainers])
         let target = try JSONSerialization.jsonElement(with: targetData, options: [])
 
-        self.measure {
-            do {
-                _ = try JSONPatch(source: source, target: target)
-            } catch {
-                XCTFail("Error: \(error)")
-            }
-        }
+        // Note: Swift Testing doesn't have a direct equivalent to measure(),
+        // but we can still run the code to ensure it works
+        _ = try JSONPatch(source: source, target: target)
     }
 
-    func testNoDifferences() throws {
+    @Test func testNoDifferences() throws {
         let source = try JSONSerialization.jsonElement(with: sourceData, options: [.mutableContainers])
         let patch = try JSONPatch(source: source, target: source)
-        XCTAssertEqual(patch.operations.count, 0)
+        #expect(patch.operations.count == 0)
     }
 
 }

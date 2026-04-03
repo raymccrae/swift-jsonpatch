@@ -18,10 +18,11 @@
 //  limitations under the License.
 //
 
-import XCTest
+import Foundation
+import Testing
 @testable import JSONPatch
 
-class JSONPatchTests: XCTestCase {
+struct JSONPatchTests {
 
     func evaluate(path: String, on json: JSONElement) -> JSONElement? {
         guard let ptr = try? JSONPointer(string: path) else {
@@ -32,7 +33,7 @@ class JSONPatchTests: XCTestCase {
 
     // This test is based on the sample given in section 5 of RFC 6901
     // https://tools.ietf.org/html/rfc6901
-    func testExample() throws {
+    @Test func testExample() throws {
         let sample = """
         {
         "foo": ["bar", "baz"],
@@ -51,41 +52,41 @@ class JSONPatchTests: XCTestCase {
         let jsonObject = try JSONSerialization.jsonObject(with: Data(sample.utf8), options: [])
         let json = try JSONElement(any: jsonObject)
 
-        XCTAssertEqual(evaluate(path: "", on: json), json)
-        XCTAssertEqual(evaluate(path: "/foo", on: json), .array(value: ["bar", "baz"]))
-        XCTAssertEqual(evaluate(path: "/foo/0", on: json), .string(value: "bar"))
-        XCTAssertEqual(evaluate(path: "/", on: json), .number(value: NSNumber(value: 0)))
-        XCTAssertEqual(evaluate(path: "/a~1b", on: json), .number(value: NSNumber(value: 1)))
-        XCTAssertEqual(evaluate(path: "/c%d", on: json), .number(value: NSNumber(value: 2)))
-        XCTAssertEqual(evaluate(path: "/e^f", on: json), .number(value: NSNumber(value: 3)))
-        XCTAssertEqual(evaluate(path: "/g|h", on: json), .number(value: NSNumber(value: 4)))
-        XCTAssertEqual(evaluate(path: "/i\\j", on: json), .number(value: NSNumber(value: 5)))
-        XCTAssertEqual(evaluate(path: "/k\"l", on: json), .number(value: NSNumber(value: 6)))
-        XCTAssertEqual(evaluate(path: "/ ", on: json), .number(value: NSNumber(value: 7)))
-        XCTAssertEqual(evaluate(path: "/m~0n", on: json), .number(value: NSNumber(value: 8)))
+        #expect(evaluate(path: "", on: json) == json)
+        #expect(evaluate(path: "/foo", on: json) == .array(value: ["bar", "baz"]))
+        #expect(evaluate(path: "/foo/0", on: json) == .string(value: "bar"))
+        #expect(evaluate(path: "/", on: json) == .number(value: NSNumber(value: 0)))
+        #expect(evaluate(path: "/a~1b", on: json) == .number(value: NSNumber(value: 1)))
+        #expect(evaluate(path: "/c%d", on: json) == .number(value: NSNumber(value: 2)))
+        #expect(evaluate(path: "/e^f", on: json) == .number(value: NSNumber(value: 3)))
+        #expect(evaluate(path: "/g|h", on: json) == .number(value: NSNumber(value: 4)))
+        #expect(evaluate(path: "/i\\j", on: json) == .number(value: NSNumber(value: 5)))
+        #expect(evaluate(path: "/k\"l", on: json) == .number(value: NSNumber(value: 6)))
+        #expect(evaluate(path: "/ ", on: json) == .number(value: NSNumber(value: 7)))
+        #expect(evaluate(path: "/m~0n", on: json) == .number(value: NSNumber(value: 8)))
 
-        XCTAssertEqual(evaluate(path: "#", on: json), json)
-        XCTAssertEqual(evaluate(path: "#/foo", on: json), .array(value: ["bar", "baz"]))
-        XCTAssertEqual(evaluate(path: "#/foo/0", on: json), .string(value: "bar"))
-        XCTAssertEqual(evaluate(path: "#/", on: json), .number(value: NSNumber(value: 0)))
-        XCTAssertEqual(evaluate(path: "#/a~1b", on: json), .number(value: NSNumber(value: 1)))
-        XCTAssertEqual(evaluate(path: "#/c%25d", on: json), .number(value: NSNumber(value: 2)))
-        XCTAssertEqual(evaluate(path: "#/e%5Ef", on: json), .number(value: NSNumber(value: 3)))
-        XCTAssertEqual(evaluate(path: "#/g%7Ch", on: json), .number(value: NSNumber(value: 4)))
-        XCTAssertEqual(evaluate(path: "#/i%5Cj", on: json), .number(value: NSNumber(value: 5)))
-        XCTAssertEqual(evaluate(path: "#/k%22l", on: json), .number(value: NSNumber(value: 6)))
-        XCTAssertEqual(evaluate(path: "#/%20", on: json), .number(value: NSNumber(value: 7)))
-        XCTAssertEqual(evaluate(path: "#/m~0n", on: json), .number(value: NSNumber(value: 8)))
+        #expect(evaluate(path: "#", on: json) == json)
+        #expect(evaluate(path: "#/foo", on: json) == .array(value: ["bar", "baz"]))
+        #expect(evaluate(path: "#/foo/0", on: json) == .string(value: "bar"))
+        #expect(evaluate(path: "#/", on: json) == .number(value: NSNumber(value: 0)))
+        #expect(evaluate(path: "#/a~1b", on: json) == .number(value: NSNumber(value: 1)))
+        #expect(evaluate(path: "#/c%25d", on: json) == .number(value: NSNumber(value: 2)))
+        #expect(evaluate(path: "#/e%5Ef", on: json) == .number(value: NSNumber(value: 3)))
+        #expect(evaluate(path: "#/g%7Ch", on: json) == .number(value: NSNumber(value: 4)))
+        #expect(evaluate(path: "#/i%5Cj", on: json) == .number(value: NSNumber(value: 5)))
+        #expect(evaluate(path: "#/k%22l", on: json) == .number(value: NSNumber(value: 6)))
+        #expect(evaluate(path: "#/%20", on: json) == .number(value: NSNumber(value: 7)))
+        #expect(evaluate(path: "#/m~0n", on: json) == .number(value: NSNumber(value: 8)))
     }
 
-    func testOperationEquality() throws {
+    @Test func testOperationEquality() throws {
         let ptr = try JSONPointer(string: "")
         let oppa = JSONPatch.Operation.add(path: ptr, value: JSONElement(false))
         let oppb = JSONPatch.Operation.add(path: ptr, value: JSONElement(0))
-        XCTAssertNotEqual(oppa, oppb)
+        #expect(oppa != oppb)
     }
 
-    func testTopLevelFragments() throws {
+    @Test func testTopLevelFragments() throws {
         let ptr = try JSONPointer(string: "")
         let doc = Data("3".utf8)
         let op = JSONPatch.Operation.replace(path: ptr, value: JSONElement(false))
@@ -93,10 +94,10 @@ class JSONPatchTests: XCTestCase {
         let result = try patch.apply(to: doc,
                                  readingOptions: [.allowFragments],
                                  writingOptions: [])
-        XCTAssertEqual(String(data: result, encoding: .utf8), "false")
+        #expect(String(data: result, encoding: .utf8) == "false")
     }
 
-    func testLargeJson() throws {
+    @Test func testLargeJson() throws {
         let sourceURL = Bundle.test.url(forResource: "bigexample1", withExtension: "json")!
         let targetURL = Bundle.test.url(forResource: "bigexample2", withExtension: "json")!
         let patchURL = Bundle.test.url(forResource: "bigpatch", withExtension: "json")!
@@ -110,23 +111,23 @@ class JSONPatchTests: XCTestCase {
 
         let patch = try JSONPatch(data: patchData)
         try sourceElem.apply(patch: patch)
-        XCTAssertEqual(sourceElem, targetElem)
+        #expect(sourceElem == targetElem)
     }
 
-    func testLargeJSONPerformance() throws {
+    @Test func testLargeJSONPerformance() throws {
         let sourceURL = Bundle.test.url(forResource: "bigexample1", withExtension: "json")!
         let patchURL = Bundle.test.url(forResource: "bigpatch", withExtension: "json")!
 
         let sourceData = try Data(contentsOf: sourceURL)
         let patchData = try Data(contentsOf: patchURL)
 
-        measure {
-            let patch = try? JSONPatch(data: patchData)
-            _ = try? patch?.apply(to: sourceData)
-        }
+        // Note: Swift Testing doesn't have a direct equivalent to measure(),
+        // but we can still run the code to ensure it works
+        let patch = try JSONPatch(data: patchData)
+        let _ = try patch.apply(to: sourceData)
     }
 
-    func testPatchRelative() throws {
+    @Test func testPatchRelative() throws {
         let source = """
         {"a": {}}
         """
@@ -137,10 +138,10 @@ class JSONPatchTests: XCTestCase {
         let p = try JSONPatch(data: patch)
         let s = try JSONSerialization.jsonObject(with: Data(source.utf8), options: [])
         let applied = try p.apply(to: s, options: [.relative(to: try JSONPointer(string: "/a"))])
-        XCTAssertEqual(applied as? NSDictionary, ["a":["b":"qux"]] as NSDictionary)
+        #expect(applied as? NSDictionary == ["a":["b":"qux"]] as NSDictionary)
     }
 
-    func testNonexistentValue() throws {
+    @Test func testNonexistentValue() throws {
         let objectData = Data("""
         {
             "prop1": "Value1",
@@ -158,17 +159,17 @@ class JSONPatchTests: XCTestCase {
         
         do {
             let _ = try patch.apply(to: objectData)
-            XCTFail("Should have thrown a nonExistentValue error")
+            Issue.record("Should have thrown a nonExistentValue error")
         } catch {
             if let error = error as? JSONError, error == .referencesNonexistentValue {
                 // Succeeded
             } else {
-                XCTFail("Should have thrown JSONError.referencesNonexistentValue, but throwed: \(error)")
+                Issue.record("Should have thrown JSONError.referencesNonexistentValue, but throwed: \(error)")
             }
         }
     }
     
-    func testIgnoreNonexistentValue() throws {
+    @Test func testIgnoreNonexistentValue() throws {
         let objectData = Data("""
         {
             "prop1": "Value1",
@@ -188,7 +189,7 @@ class JSONPatchTests: XCTestCase {
             let _ = try patch.apply(to: objectData, applyingOptions: [.ignoreNonexistentValues])
             // Succeeded
         } catch {
-            XCTFail("Should not have thrown JSONError.referencesNonexistentValue, throwed: \(error)")
+            Issue.record("Should not have thrown JSONError.referencesNonexistentValue, throwed: \(error)")
         }
     }
 }

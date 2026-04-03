@@ -18,10 +18,10 @@
 //  limitations under the License.
 //
 
-import XCTest
+import Testing
 @testable import JSONPatch
 
-class JSONPointerTests: XCTestCase {
+struct JSONPointerTests {
 
     func parent(_ string: String) -> String? {
         let pointer = try? JSONPointer(string: string)
@@ -29,23 +29,23 @@ class JSONPointerTests: XCTestCase {
         return parent?.string
     }
 
-    func testParent() {
-        XCTAssertNil(parent(""))
-        XCTAssertEqual(parent("/a"), "")
-        XCTAssertEqual(parent("/a/b"), "/a")
-        XCTAssertEqual(parent("/a/b/c"), "/a/b")
-        XCTAssertEqual(parent("/"), "")
-        XCTAssertEqual(parent("//"), "/")
-        XCTAssertEqual(parent("///"), "//")
+    @Test func testParent() {
+        #expect(parent("") == nil)
+        #expect(parent("/a") == "")
+        #expect(parent("/a/b") == "/a")
+        #expect(parent("/a/b/c") == "/a/b")
+        #expect(parent("/") == "")
+        #expect(parent("//") == "/")
+        #expect(parent("///") == "//")
     }
 
-    func testArrayIndexFormat() {
-        XCTAssertTrue(JSONPointer.isValidArrayIndex("-"))
-        XCTAssertFalse(JSONPointer.isValidArrayIndex("--"))
-        XCTAssertTrue(JSONPointer.isValidArrayIndex("0"))
-        XCTAssertTrue(JSONPointer.isValidArrayIndex("1"))
-        XCTAssertTrue(JSONPointer.isValidArrayIndex("10"))
-        XCTAssertFalse(JSONPointer.isValidArrayIndex("00"))
+    @Test func testArrayIndexFormat() {
+        #expect(JSONPointer.isValidArrayIndex("-"))
+        #expect(!JSONPointer.isValidArrayIndex("--"))
+        #expect(JSONPointer.isValidArrayIndex("0"))
+        #expect(JSONPointer.isValidArrayIndex("1"))
+        #expect(JSONPointer.isValidArrayIndex("10"))
+        #expect(!JSONPointer.isValidArrayIndex("00"))
     }
 
 }
