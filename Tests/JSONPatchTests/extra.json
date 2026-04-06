@@ -10,7 +10,7 @@
         "patch": [{"op": "copy", "from": "/0", "path": "/1"},
             {"op": "replace", "path": "/1/a/b/c", "value": "e"},
             {"op": "copy", "from": "/1", "path": "/2"},
-            {"op": "replace", "path": "/2/a/b/c", "value": "f"},
+            {"op": "replace", "path": "/2/a/b/c", "value": "f"}
         ],
         "expected": [{"a": {"b": {"c": "d"}}}, {"a": {"b": {"c": "e"}}}, {"a": {"b": {"c": "f"}}}]
     },
@@ -20,7 +20,7 @@
         "patch": [{"op": "copy", "from": "/0", "path": "/1"},
             {"op": "replace", "path": "/1/a/b/c", "value": "e"},
             {"op": "copy", "from": "/1", "path": "/2"},
-            {"op": "replace", "path": "/2/a/b/c", "value": "f"},
+            {"op": "replace", "path": "/2/a/b/c", "value": "f"}
         ],
         "expected": [{"a": {"b": {"c": null}}}, {"a": {"b": {"c": "e"}}}, {"a": {"b": {"c": "f"}}}]
     },
@@ -41,6 +41,484 @@
         "doc": false,
         "patch": [{"op": "test", "path": "", "value": 0}],
         "error": "Test op failed"
-    }
+    },
+
+    {
+    "comment": "Multi-level nested array: add to deep nested array element",
+    "doc": {"data": [{"items": [1, 2, 3]}]},
+    "patch": [{"op": "add", "path": "/data/0/items/1", "value": 99}],
+    "expected": {"data": [{"items": [1, 99, 2, 3]}]}
+  },
+
+  {
+    "comment": "Multi-level nested array: remove from deep nested array",
+    "doc": {"data": [{"items": [1, 2, 3]}]},
+    "patch": [{"op": "remove", "path": "/data/0/items/1"}],
+    "expected": {"data": [{"items": [1, 3]}]}
+  },
+
+  {
+    "comment": "Multi-level nested array: replace in deep nested structure",
+    "doc": {"data": [{"items": [1, 2, 3]}]},
+    "patch": [{"op": "replace", "path": "/data/0/items/1", "value": 99}],
+    "expected": {"data": [{"items": [1, 99, 3]}]}
+  },
+
+  {
+    "comment": "Sequential add: add multiple elements to same array",
+    "doc": {"items": []},
+    "patch": [
+      {"op": "add", "path": "/items/0", "value": "first"},
+      {"op": "add", "path": "/items/1", "value": "second"},
+      {"op": "add", "path": "/items/2", "value": "third"}
+    ],
+    "expected": {"items": ["first", "second", "third"]}
+  },
+
+  {
+    "comment": "Sequential operations: add then copy",
+    "doc": {"data": []},
+    "patch": [
+      {"op": "add", "path": "/data/0", "value": {"x": 1}},
+      {"op": "copy", "from": "/data/0", "path": "/data/1"}
+    ],
+    "expected": {"data": [{"x": 1}, {"x": 1}]}
+  },
+
+  {
+    "comment": "Sequential operations: add then move",
+    "doc": {"a": [], "b": []},
+    "patch": [
+      {"op": "add", "path": "/a/0", "value": "item"},
+      {"op": "move", "from": "/a/0", "path": "/b/0"}
+    ],
+    "expected": {"a": [], "b": ["item"]}
+  },
+
+  {
+    "comment": "Copy then modify both: verify independent copies",
+    "doc": [{"x": 1}],
+    "patch": [
+      {"op": "copy", "from": "/0", "path": "/1"},
+      {"op": "replace", "path": "/0/x", "value": 2},
+      {"op": "replace", "path": "/1/x", "value": 3}
+    ],
+    "expected": [{"x": 2}, {"x": 3}]
+  },
+
+  {
+    "comment": "Complex replace: change scalar to object",
+    "doc": {"value": 42},
+    "patch": [{"op": "replace", "path": "/value", "value": {"nested": "object"}}],
+    "expected": {"value": {"nested": "object"}}
+  },
+
+  {
+    "comment": "Complex replace: change object to array",
+    "doc": {"value": {"old": "object"}},
+    "patch": [{"op": "replace", "path": "/value", "value": [1, 2, 3]}],
+    "expected": {"value": [1, 2, 3]}
+  },
+
+  {
+    "comment": "Complex replace: change array to scalar",
+    "doc": {"value": [1, 2, 3]},
+    "patch": [{"op": "replace", "path": "/value", "value": "string"}],
+    "expected": {"value": "string"}
+  },
+
+  {
+    "comment": "Single element array: add adjacent element",
+    "doc": [1],
+    "patch": [{"op": "add", "path": "/1", "value": 2}],
+    "expected": [1, 2]
+  },
+
+  {
+    "comment": "Single element array: replace the element",
+    "doc": [1],
+    "patch": [{"op": "replace", "path": "/0", "value": 999}],
+    "expected": [999]
+  },
+
+  {
+    "comment": "Single element array: remove the element",
+    "doc": [1],
+    "patch": [{"op": "remove", "path": "/0"}],
+    "expected": []
+  },
+
+  {
+    "comment": "Single element array: copy element",
+    "doc": [{"data": "test"}],
+    "patch": [{"op": "copy", "from": "/0", "path": "/1"}],
+    "expected": [{"data": "test"}, {"data": "test"}]
+  },
+
+  {
+    "comment": "Array boundary: add at end with /-",
+    "doc": [1, 2],
+    "patch": [{"op": "add", "path": "/-", "value": 3}],
+    "expected": [1, 2, 3]
+  },
+
+  {
+    "comment": "Array boundary: add multiple at end sequentially",
+    "doc": [1],
+    "patch": [
+      {"op": "add", "path": "/-", "value": 2},
+      {"op": "add", "path": "/-", "value": 3},
+      {"op": "add", "path": "/-", "value": 4}
+    ],
+    "expected": [1, 2, 3, 4]
+  },
+
+  {
+    "comment": "Consecutive array modifications: remove and add",
+    "doc": [1, 2, 3, 4, 5],
+    "patch": [
+      {"op": "remove", "path": "/2"},
+      {"op": "add", "path": "/2", "value": 99}
+    ],
+    "expected": [1, 2, 99, 4, 5]
+  },
+
+  {
+    "comment": "Array reordering: move to beginning",
+    "doc": [1, 2, 3],
+    "patch": [{"op": "move", "from": "/2", "path": "/0"}],
+    "expected": [3, 1, 2]
+  },
+
+  {
+    "comment": "Array reordering: move to end",
+    "doc": [1, 2, 3],
+    "patch": [{"op": "move", "from": "/0", "path": "/2"}],
+    "expected": [2, 3, 1]
+  },
+
+  {
+    "comment": "Deep copy: nested array in array",
+    "doc": [[1, 2, 3]],
+    "patch": [
+      {"op": "copy", "from": "/0", "path": "/1"},
+      {"op": "add", "path": "/0/1", "value": 99}
+    ],
+    "expected": [[1, 99, 2, 3], [1, 2, 3]]
+  },
+
+  {
+    "comment": "Deep copy: nested object in object",
+    "doc": {"original": {"a": {"b": 1}}},
+    "patch": [
+      {"op": "copy", "from": "/original", "path": "/copied"},
+      {"op": "replace", "path": "/copied/a/b", "value": 2}
+    ],
+    "expected": {"original": {"a": {"b": 1}}, "copied": {"a": {"b": 2}}}
+  },
+
+  {
+    "comment": "Test operation on nested structure",
+    "doc": {"a": {"b": {"c": "value"}}},
+    "patch": [{"op": "test", "path": "/a/b/c", "value": "value"}],
+    "expected": {"a": {"b": {"c": "value"}}}
+  },
+
+  {
+    "comment": "Test then replace: verify condition before change",
+    "doc": {"flag": true, "message": "old"},
+    "patch": [
+      {"op": "test", "path": "/flag", "value": true},
+      {"op": "replace", "path": "/message", "value": "new"}
+    ],
+    "expected": {"flag": true, "message": "new"}
+  },
+
+  {
+    "comment": "Add with array containing objects",
+    "doc": {"items": []},
+    "patch": [{"op": "add", "path": "/items/0", "value": {"id": 1, "name": "test"}}],
+    "expected": {"items": [{"id": 1, "name": "test"}]}
+  },
+
+  {
+    "comment": "Add nested array value",
+    "doc": {"matrix": []},
+    "patch": [{"op": "add", "path": "/matrix/0", "value": [1, 2, 3]}],
+    "expected": {"matrix": [[1, 2, 3]]}
+  },
+
+  {
+    "comment": "Replace array with object",
+    "doc": {"item": [1, 2, 3]},
+    "patch": [{"op": "replace", "path": "/item", "value": {"a": 1, "b": 2, "c": 3}}],
+    "expected": {"item": {"a": 1, "b": 2, "c": 3}}
+  },
+
+  {
+    "comment": "Unicode characters in object key: add",
+    "doc": {"english": "hello"},
+    "patch": [{"op": "add", "path": "/日本語", "value": "こんにちは"}],
+    "expected": {"english": "hello", "日本語": "こんにちは"}
+  },
+
+  {
+    "comment": "Unicode characters in object key: test",
+    "doc": {"日本語": "テスト"},
+    "patch": [{"op": "test", "path": "/日本語", "value": "テスト"}],
+    "expected": {"日本語": "テスト"}
+  },
+
+  {
+    "comment": "Numeric precision: large numbers preserved",
+    "doc": {"values": []},
+    "patch": [
+      {"op": "add", "path": "/values/0", "value": 9007199254740992},
+      {"op": "add", "path": "/values/1", "value": 9007199254740993}
+    ],
+    "expected": {"values": [9007199254740992, 9007199254740993]}
+  },
+
+  {
+    "comment": "Numeric precision: floating point",
+    "doc": {"measurements": []},
+    "patch": [
+      {"op": "add", "path": "/measurements/0", "value": 3.14159},
+      {"op": "add", "path": "/measurements/1", "value": 2.71828}
+    ],
+    "expected": {"measurements": [3.14159, 2.71828]}
+  },
+
+  {
+    "comment": "Object with numeric string keys: add",
+    "doc": {},
+    "patch": [
+      {"op": "add", "path": "/0", "value": "zero"},
+      {"op": "add", "path": "/1", "value": "one"},
+      {"op": "add", "path": "/2", "value": "two"}
+    ],
+    "expected": {"0": "zero", "1": "one", "2": "two"}
+  },
+
+  {
+    "comment": "Object with numeric string keys: access mixed",
+    "doc": {"0": "numeric", "key": "string"},
+    "patch": [{"op": "test", "path": "/0", "value": "numeric"}],
+    "expected": {"0": "numeric", "key": "string"}
+  },
+
+  {
+    "comment": "Empty string as object key",
+    "doc": {"": "empty", "filled": "value"},
+    "patch": [{"op": "test", "path": "/", "value": "empty"}],
+    "expected": {"": "empty", "filled": "value"}
+  },
+
+  {
+    "comment": "Replace empty string key value",
+    "doc": {"": "old"},
+    "patch": [{"op": "replace", "path": "/", "value": "new"}],
+    "expected": {"": "new"}
+  },
+
+  {
+    "comment": "Special characters in keys: slash",
+    "doc": {"a/b": "value"},
+    "patch": [{"op": "test", "path": "/a~1b", "value": "value"}],
+    "expected": {"a/b": "value"}
+  },
+
+  {
+    "comment": "Special characters in keys: tilde",
+    "doc": {"a~b": "value"},
+    "patch": [{"op": "test", "path": "/a~0b", "value": "value"}],
+    "expected": {"a~b": "value"}
+  },
+
+  {
+    "comment": "Move array element preserves neighboring elements",
+    "doc": [10, 20, 30, 40, 50],
+    "patch": [{"op": "move", "from": "/2", "path": "/4"}],
+    "expected": [10, 20, 40, 50, 30]
+  },
+
+  {
+    "comment": "Copy array element multiple times",
+    "doc": [1],
+    "patch": [
+      {"op": "copy", "from": "/0", "path": "/1"},
+      {"op": "copy", "from": "/0", "path": "/2"},
+      {"op": "copy", "from": "/1", "path": "/3"}
+    ],
+    "expected": [1, 1, 1, 1]
+  },
+
+  {
+    "comment": "Remove multiple elements in reverse order",
+    "doc": [1, 2, 3, 4, 5],
+    "patch": [
+      {"op": "remove", "path": "/4"},
+      {"op": "remove", "path": "/3"},
+      {"op": "remove", "path": "/2"}
+    ],
+    "expected": [1, 2]
+  },
+
+  {
+    "comment": "Complex nested structure: add at multiple levels",
+    "doc": {"level1": {"level2": {"array": []}}},
+    "patch": [
+      {"op": "add", "path": "/level1/level2/array/0", "value": "value1"},
+      {"op": "add", "path": "/level1/level2/scalar", "value": 42}
+    ],
+    "expected": {"level1": {"level2": {"array": ["value1"], "scalar": 42}}}
+  },
+
+  {
+    "comment": "Complex nested structure: move between levels",
+    "doc": {"source": {"data": "important"}, "destination": {}},
+    "patch": [{"op": "move", "from": "/source/data", "path": "/destination/data"}],
+    "expected": {"source": {}, "destination": {"data": "important"}}
+  },
+
+  {
+    "comment": "Array of mixed types: add to mixed array",
+    "doc": {"mixed": [1, "string", true, null]},
+    "patch": [{"op": "add", "path": "/mixed/4", "value": {"object": "value"}}],
+    "expected": {"mixed": [1, "string", true, null, {"object": "value"}]}
+  },
+
+  {
+    "comment": "Array of mixed types: replace with different type",
+    "doc": {"mixed": [1, "string", true]},
+    "patch": [{"op": "replace", "path": "/mixed/1", "value": 999}],
+    "expected": {"mixed": [1, 999, true]}
+  },
+
+  {
+    "comment": "Null value handling: add null",
+    "doc": {"data": []},
+    "patch": [{"op": "add", "path": "/data/0", "value": null}],
+    "expected": {"data": [null]}
+  },
+
+  {
+    "comment": "Null value handling: replace with null",
+    "doc": {"value": "something"},
+    "patch": [{"op": "replace", "path": "/value", "value": null}],
+    "expected": {"value": null}
+  },
+
+  {
+    "comment": "Null value handling: copy null value",
+    "doc": {"original": null},
+    "patch": [{"op": "copy", "from": "/original", "path": "/copy"}],
+    "expected": {"original": null, "copy": null}
+  },
+
+  {
+    "comment": "Boolean value: add true",
+    "doc": {"flags": []},
+    "patch": [{"op": "add", "path": "/flags/0", "value": true}],
+    "expected": {"flags": [true]}
+  },
+
+  {
+    "comment": "Boolean value: add false",
+    "doc": {"flags": []},
+    "patch": [{"op": "add", "path": "/flags/0", "value": false}],
+    "expected": {"flags": [false]}
+  },
+
+  {
+    "comment": "Boolean value: test true vs truthy",
+    "doc": {"flag": true},
+    "patch": [{"op": "test", "path": "/flag", "value": true}],
+    "expected": {"flag": true}
+  },
+
+  {
+    "comment": "Empty object: add member",
+    "doc": {},
+    "patch": [{"op": "add", "path": "/first", "value": 1}],
+    "expected": {"first": 1}
+  },
+
+  {
+    "comment": "Empty array: add first element",
+    "doc": [],
+    "patch": [{"op": "add", "path": "/0", "value": "first"}],
+    "expected": ["first"]
+  },
+
+  {
+    "comment": "Complex object in array: modify",
+    "doc": {"items": [{"id": 1, "name": "item1", "details": {"color": "red"}}]},
+    "patch": [{"op": "replace", "path": "/items/0/details/color", "value": "blue"}],
+    "expected": {"items": [{"id": 1, "name": "item1", "details": {"color": "blue"}}]}
+  },
+
+  {
+    "comment": "Array within array: modify nested array element",
+    "doc": {"matrix": [[1, 2], [3, 4]]},
+    "patch": [{"op": "replace", "path": "/matrix/0/1", "value": 99}],
+    "expected": {"matrix": [[1, 99], [3, 4]]}
+  },
+
+  {
+    "comment": "Array within array: add to nested array",
+    "doc": {"matrix": [[1, 2], [3, 4]]},
+    "patch": [{"op": "add", "path": "/matrix/0/2", "value": 5}],
+    "expected": {"matrix": [[1, 2, 5], [3, 4]]}
+  },
+
+  {
+    "comment": "Array within array: remove from nested array",
+    "doc": {"matrix": [[1, 2, 3], [4, 5, 6]]},
+    "patch": [{"op": "remove", "path": "/matrix/1/1"}],
+    "expected": {"matrix": [[1, 2, 3], [4, 6]]}
+  },
+
+  {
+    "comment": "Object mutation: change multiple properties",
+    "doc": {"x": 1, "y": 2, "z": 3},
+    "patch": [
+      {"op": "replace", "path": "/x", "value": 10},
+      {"op": "replace", "path": "/y", "value": 20},
+      {"op": "add", "path": "/w", "value": 40}
+    ],
+    "expected": {"x": 10, "y": 20, "z": 3, "w": 40}
+  },
+
+  {
+    "comment": "Copy with simultaneous modification of source",
+    "doc": [{"value": 1}],
+    "patch": [
+      {"op": "copy", "from": "/0", "path": "/1"},
+      {"op": "replace", "path": "/0/value", "value": 2}
+    ],
+    "expected": [{"value": 2}, {"value": 1}]
+  },
+
+  {
+    "comment": "Long path sequence: deep nesting",
+    "doc": {"a": {"b": {"c": {"d": {"e": {"f": "value"}}}}}},
+    "patch": [{"op": "test", "path": "/a/b/c/d/e/f", "value": "value"}],
+    "expected": {"a": {"b": {"c": {"d": {"e": {"f": "value"}}}}}}
+  },
+
+  {
+    "comment": "Long path sequence: deep replacement",
+    "doc": {"a": {"b": {"c": {"d": {"e": {"f": "old"}}}}}},
+    "patch": [{"op": "replace", "path": "/a/b/c/d/e/f", "value": "new"}],
+    "expected": {"a": {"b": {"c": {"d": {"e": {"f": "new"}}}}}}
+  },
+
+  {
+    "comment": "String with special JSON characters",
+    "doc": {"text": ""},
+    "patch": [{"op": "add", "path": "/special", "value": "\\\"quoted\\\" with \\n newline"}],
+    "expected": {"text": "", "special": "\\\"quoted\\\" with \\n newline"}
+  }
 
 ]
