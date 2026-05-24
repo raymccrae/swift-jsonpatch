@@ -48,4 +48,40 @@ struct JSONPointerTests {
         #expect(!JSONPointer.isValidArrayIndex("00"))
     }
 
+    @Test func testValidEscapes() throws {
+        let slash = try JSONPointer(string: "/a~1b")
+        #expect(slash.lastComponent == "a/b")
+        #expect(slash.string == "/a~1b")
+
+        let tilde = try JSONPointer(string: "/a~0b")
+        #expect(tilde.lastComponent == "a~b")
+        #expect(tilde.string == "/a~0b")
+
+        let orderedEscape = try JSONPointer(string: "/~01")
+        #expect(orderedEscape.lastComponent == "~1")
+        #expect(orderedEscape.string == "/~01")
+
+        let literalTildeTwo = try JSONPointer(string: "/~02")
+        #expect(literalTildeTwo.lastComponent == "~2")
+        #expect(literalTildeTwo.string == "/~02")
+    }
+
+    @Test func testInvalidEscapes() {
+        expectInvalidPointerSyntax("/a~2b")
+        expectInvalidPointerSyntax("/a~")
+        expectInvalidPointerSyntax("/a~~b")
+        expectInvalidPointerSyntax("/a~01~")
+        expectInvalidPointerSyntax("#/a~2b")
+        expectInvalidPointerSyntax("#/a~")
+    }
+
+    private func expectInvalidPointerSyntax(_ string: String) {
+        do {
+            _ = try JSONPointer(string: string)
+            Issue.record("Should have thrown JSONError.invalidPointerSyntax for \(string)")
+        } catch {
+            #expect(error as? JSONError == .invalidPointerSyntax)
+        }
+    }
+
 }

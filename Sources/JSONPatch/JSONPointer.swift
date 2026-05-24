@@ -93,8 +93,41 @@ extension JSONPointer {
         }
 
         let escapedComponents = string.components(separatedBy: "/").dropFirst()
-        let unescapedComponents = escapedComponents.map(JSONPointer.unescape)
+        let unescapedComponents = try escapedComponents.map(JSONPointer.strictUnescape)
         self.init(components: ArraySlice(unescapedComponents))
+    }
+
+    private static func strictUnescape(_ escaped: String) throws -> String {
+        var value = ""
+        var index = escaped.startIndex
+
+        while index < escaped.endIndex {
+            let character = escaped[index]
+
+            guard character == "~" else {
+                value.append(character)
+                index = escaped.index(after: index)
+                continue
+            }
+
+            let escapeIndex = escaped.index(after: index)
+            guard escapeIndex < escaped.endIndex else {
+                throw JSONError.invalidPointerSyntax
+            }
+
+            switch escaped[escapeIndex] {
+            case "0":
+                value.append("~")
+            case "1":
+                value.append("/")
+            default:
+                throw JSONError.invalidPointerSyntax
+            }
+
+            index = escaped.index(after: escapeIndex)
+        }
+
+        return value
     }
 
     /// Unescapes the escape sequence within the string.
