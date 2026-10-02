@@ -519,6 +519,13 @@
     "doc": {"text": ""},
     "patch": [{"op": "add", "path": "/special", "value": "\\\"quoted\\\" with \\n newline"}],
     "expected": {"text": "", "special": "\\\"quoted\\\" with \\n newline"}
+  },
+
+  {
+    "comment": "Numeric preservation: multiple zero values",
+    "doc": {"data": [0, 0, 0]},
+    "patch": [{"op": "test", "path": "/data", "value": [0, 0, 0]}],
+    "expected": {"data": [0, 0, 0]}
   }
 
 ]
