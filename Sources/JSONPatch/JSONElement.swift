@@ -432,17 +432,19 @@ extension JSONElement {
     ///   - value: The expected value.
     ///   - pointer: The location of the value to test.
     public func test(value: JSONElement, at pointer: JSONPointer) throws {
+        let found: JSONElement
         do {
-            let found = try evaluate(pointer: pointer)
-            if found != value {
-                throw JSONError.patchTestFailed(path: pointer.string,
-                                                expected: value.rawValue,
-                                                found: found.rawValue)
-            }
+            found = try evaluate(pointer: pointer)
         } catch {
             throw JSONError.patchTestFailed(path: pointer.string,
                                             expected: value.rawValue,
                                             found: nil)
+        }
+
+        if found != value {
+            throw JSONError.patchTestFailed(path: pointer.string,
+                                            expected: value.rawValue,
+                                            found: found.rawValue)
         }
     }
 

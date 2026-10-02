@@ -25,6 +25,27 @@ import Testing
 struct JSONPatchTests {
 
     @Test(arguments: [false, true])
+    func testMismatchPreservesPayloadAndStopsPatch(_ ignoreNonexistentValues: Bool) throws {
+        let json = Data(#"{"value":1}"#.utf8)
+        let document = try JSONSerialization.jsonObject(with: json, options: [.mutableContainers])
+        let original = try JSONSerialization.jsonElement(with: json, options: [])
+        let patch = try JSONPatch(data: Data(#"[{"op":"test","path":"/value","value":2},{"op":"add","path":"/later","value":true}]"#.utf8))
+        let options: [JSONPatch.ApplyOption] = ignoreNonexistentValues ? [.ignoreNonexistentValues] : []
+
+        do {
+            _ = try patch.apply(to: document, options: options)
+            Issue.record("Expected JSONError.patchTestFailed")
+        } catch JSONError.patchTestFailed(let path, let expected, let found) {
+            #expect(path == "/value")
+            #expect(try JSONElement(any: expected) == JSONElement(2))
+            let actual = try #require(found)
+            #expect(try JSONElement(any: actual) == JSONElement(1))
+        }
+
+        #expect(try JSONElement(any: document) == original)
+    }
+
+    @Test(arguments: [false, true])
     func testRootCopyPatch(_ ignoreNonexistentValues: Bool) throws {
         let document = try JSONSerialization.jsonObject(with: Data(#"{"a":1}"#.utf8), options: [.mutableContainers])
         let patch = try JSONPatch(data: Data(#"[{"op":"copy","from":"","path":"/backup"}]"#.utf8))

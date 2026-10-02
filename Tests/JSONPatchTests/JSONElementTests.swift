@@ -25,6 +25,55 @@ import Testing
 struct JSONElementTests {
 
     @Test(arguments: [
+        (#"{"value":1}"#, "/value", "2", "1"),
+        (#"{"value":{"a":1}}"#, "/value", #"{"a":2}"#, #"{"a":1}"#),
+        (#"{"value":[1,2]}"#, "/value", "[1,3]", "[1,2]"),
+        (#"{"value":null}"#, "/value", "1", "null"),
+        (#"{"a":1}"#, "", #"{"a":2}"#, #"{"a":1}"#)
+    ])
+    func testMismatchErrorPayload(_ json: String, _ path: String, _ expectedJSON: String, _ foundJSON: String) throws {
+        let element = try JSONSerialization.jsonElement(with: Data(json.utf8), options: [])
+        let expected = try JSONSerialization.jsonElement(with: Data(expectedJSON.utf8), options: [.fragmentsAllowed])
+        let actual = try JSONSerialization.jsonElement(with: Data(foundJSON.utf8), options: [.fragmentsAllowed])
+
+        do {
+            try element.test(value: expected, at: JSONPointer(string: path))
+            Issue.record("Expected JSONError.patchTestFailed")
+        } catch JSONError.patchTestFailed(let errorPath, let errorExpected, let errorFound) {
+            #expect(errorPath == path)
+            #expect(try JSONElement(any: errorExpected) == expected)
+            let found = try #require(errorFound)
+            #expect(try JSONElement(any: found) == actual)
+            if actual == .null {
+                #expect(found is NSNull)
+            }
+        }
+    }
+
+    @Test func testMissingPathErrorPayload() throws {
+        let element = try JSONSerialization.jsonElement(with: Data(#"{"value":1}"#.utf8), options: [])
+        do {
+            try element.test(value: JSONElement(2), at: JSONPointer(string: "/missing"))
+            Issue.record("Expected JSONError.patchTestFailed")
+        } catch JSONError.patchTestFailed(let path, let expected, let found) {
+            #expect(path == "/missing")
+            #expect(try JSONElement(any: expected) == JSONElement(2))
+            #expect(found == nil)
+        }
+    }
+
+    @Test(arguments: [
+        (#"{"value":1}"#, "/value", "1"),
+        (#"{"value":null}"#, "/value", "null"),
+        (#"{"value":1}"#, "", #"{"value":1}"#)
+    ])
+    func testMatchingValues(_ json: String, _ path: String, _ expectedJSON: String) throws {
+        let element = try JSONSerialization.jsonElement(with: Data(json.utf8), options: [])
+        let expected = try JSONSerialization.jsonElement(with: Data(expectedJSON.utf8), options: [.fragmentsAllowed])
+        try element.test(value: expected, at: JSONPointer(string: path))
+    }
+
+    @Test(arguments: [
         (#"{"a":1}"#, "", "/backup", #"{"a":1,"backup":{"a":1}}"#),
         (#"{"a":{"value":1}}"#, "", "/a/backup", #"{"a":{"value":1,"backup":{"a":{"value":1}}}}"#),
         (#"[1,2]"#, "", "/-", #"[1,2,[1,2]]"#),
