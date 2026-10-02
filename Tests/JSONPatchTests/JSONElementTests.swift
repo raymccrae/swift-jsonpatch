@@ -24,6 +24,46 @@ import Testing
 
 struct JSONElementTests {
 
+    @Test(arguments: [
+        (#"{"a":{"b":[],"value":1}}"#, "/a", "/a/b/-"),
+        (#"{"a":{"b":[],"value":1}}"#, "/a", "/a/b"),
+        (#"{"items":[{"child":1}]}"#, "/items/0", "/items/0/child"),
+        (#"{"a":1}"#, "", "/backup"),
+        (#"{"a/b":{"child":1}}"#, "/a~1b", "/a~1b/child")
+    ])
+    func testRecursiveMovePreservesDocument(_ json: String, _ source: String, _ destination: String) throws {
+        let document = try JSONSerialization.jsonObject(with: Data(json.utf8), options: [.mutableContainers])
+        var element = try JSONElement(any: document)
+        let original = try element.copy()
+        let from = try JSONPointer(string: source)
+        let to = try JSONPointer(string: destination)
+
+        do {
+            try element.move(from: from, to: to)
+            Issue.record("Expected recursive move to throw JSONError.invalidPatchFormat")
+        } catch {
+            #expect(error as? JSONError == .invalidPatchFormat)
+        }
+
+        #expect(element == original)
+        #expect(try JSONElement(any: document) == original)
+    }
+
+    @Test(arguments: [
+        (#"{"a":1}"#, "/a", "/ab", #"{"ab":1}"#),
+        (#"{"a":{"b":1}}"#, "/a", "/a", #"{"a":{"b":1}}"#),
+        (#"{"a":1}"#, "", "", #"{"a":1}"#),
+        (#"{"a":{"b":1}}"#, "/a", "", #"{"b":1}"#),
+        (#"[1,2,3]"#, "/0", "/2", #"[2,3,1]"#),
+        (#"[1,2,3]"#, "/1", "/1", #"[1,2,3]"#)
+    ])
+    func testValidMovePaths(_ json: String, _ source: String, _ destination: String, _ expectedJSON: String) throws {
+        var element = try JSONSerialization.jsonElement(with: Data(json.utf8), options: [.mutableContainers])
+        let expected = try JSONSerialization.jsonElement(with: Data(expectedJSON.utf8), options: [])
+        try element.move(from: JSONPointer(string: source), to: JSONPointer(string: destination))
+        #expect(element == expected)
+    }
+
     @Test func testNumericEquality() throws {
         let boolFalse = try JSONElement(any: NSNumber(value: false))
         let int0 = try JSONElement(any: NSNumber(value: 0))

@@ -380,11 +380,17 @@ extension JSONElement {
     }
 
     /// Moves a value at the from location to a new location within the JSON Structure.
+    /// Moving a value into its own descendant throws `JSONError.invalidPatchFormat`
+    /// before modifying the document.
     ///
     /// - Parameters:
     ///   - from: The location of the JSON element to move.
     ///   - to: The location to move the value to.
     public mutating func move(from: JSONPointer, to: JSONPointer) throws {
+        guard !(from.count < to.count && to.prefix(from.count).elementsEqual(from)) else {
+            throw JSONError.invalidPatchFormat
+        }
+
         guard let toParent = to.parent else {
             self = try evaluate(pointer: from)
             return

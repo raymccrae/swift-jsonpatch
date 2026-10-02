@@ -24,6 +24,24 @@ import Testing
 
 struct JSONPatchTests {
 
+    @Test(arguments: [false, true])
+    func testRecursiveMoveStopsPatch(_ ignoreNonexistentValues: Bool) throws {
+        let json = Data(#"{"a":{"b":[],"value":1}}"#.utf8)
+        let document = try JSONSerialization.jsonObject(with: json, options: [.mutableContainers])
+        let original = try JSONSerialization.jsonElement(with: json, options: [])
+        let patch = try JSONPatch(data: Data(#"[{"op":"move","from":"/a","path":"/a/b/-"},{"op":"add","path":"/later","value":true}]"#.utf8))
+        let options: [JSONPatch.ApplyOption] = ignoreNonexistentValues ? [.ignoreNonexistentValues] : []
+
+        do {
+            _ = try patch.apply(to: document, options: options)
+            Issue.record("Expected recursive move to throw JSONError.invalidPatchFormat")
+        } catch {
+            #expect(error as? JSONError == .invalidPatchFormat)
+        }
+
+        #expect(try JSONElement(any: document) == original)
+    }
+
     private class BundleToken {}
 
     private static func testBundleURL(forResource name: String, withExtension ext: String?) -> URL {
