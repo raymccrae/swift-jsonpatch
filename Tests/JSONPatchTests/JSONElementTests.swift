@@ -25,6 +25,53 @@ import Testing
 struct JSONElementTests {
 
     @Test(arguments: [
+        (#"{"a":1}"#, "", "/backup", #"{"a":1,"backup":{"a":1}}"#),
+        (#"{"a":{"value":1}}"#, "", "/a/backup", #"{"a":{"value":1,"backup":{"a":{"value":1}}}}"#),
+        (#"[1,2]"#, "", "/-", #"[1,2,[1,2]]"#),
+        (#"{"a":1,"backup":2}"#, "", "/backup", #"{"a":1,"backup":{"a":1,"backup":2}}"#),
+        (#"{"a":1}"#, "", "", #"{"a":1}"#),
+        (#"{"a":{"value":1}}"#, "/a", "", #"{"value":1}"#)
+    ])
+    func testCopyPaths(_ json: String, _ source: String, _ destination: String, _ expectedJSON: String) throws {
+        let expected = try JSONSerialization.jsonElement(with: Data(expectedJSON.utf8), options: [])
+        for options: JSONSerialization.ReadingOptions in [[], [.mutableContainers]] {
+            var element = try JSONSerialization.jsonElement(with: Data(json.utf8), options: options)
+            try element.copy(from: JSONPointer(string: source), to: JSONPointer(string: destination))
+            #expect(element == expected)
+        }
+    }
+
+    @Test func testRootCopyIsIndependent() throws {
+        var element = try JSONSerialization.jsonElement(
+            with: Data(#"{"object":{"value":1},"items":[{"value":2}]}"#.utf8),
+            options: [.mutableContainers])
+        try element.copy(from: JSONPointer(string: ""), to: JSONPointer(string: "/backup"))
+
+        try element.replace(value: JSONElement(3), to: JSONPointer(string: "/object/value"))
+        try element.replace(value: JSONElement(4), to: JSONPointer(string: "/items/0/value"))
+        #expect(try element.evaluate(pointer: JSONPointer(string: "/backup/object/value")) == JSONElement(1))
+        #expect(try element.evaluate(pointer: JSONPointer(string: "/backup/items/0/value")) == JSONElement(2))
+
+        try element.replace(value: JSONElement(5), to: JSONPointer(string: "/backup/object/value"))
+        try element.replace(value: JSONElement(6), to: JSONPointer(string: "/backup/items/0/value"))
+        #expect(try element.evaluate(pointer: JSONPointer(string: "/object/value")) == JSONElement(3))
+        #expect(try element.evaluate(pointer: JSONPointer(string: "/items/0/value")) == JSONElement(4))
+    }
+
+    @Test(arguments: [("/missing", "/backup"), ("", "/missing/backup")])
+    func testCopyMissingPath(_ source: String, _ destination: String) throws {
+        var element = try JSONSerialization.jsonElement(with: Data(#"{"a":1}"#.utf8), options: [.mutableContainers])
+        let original = try element.copy()
+        do {
+            try element.copy(from: JSONPointer(string: source), to: JSONPointer(string: destination))
+            Issue.record("Expected JSONError.referencesNonexistentValue")
+        } catch {
+            #expect(error as? JSONError == .referencesNonexistentValue)
+        }
+        #expect(element == original)
+    }
+
+    @Test(arguments: [
         (#"{"a":{"b":[],"value":1}}"#, "/a", "/a/b/-"),
         (#"{"a":{"b":[],"value":1}}"#, "/a", "/a/b"),
         (#"{"items":[{"child":1}]}"#, "/items/0", "/items/0/child"),

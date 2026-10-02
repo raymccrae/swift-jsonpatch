@@ -409,25 +409,21 @@ extension JSONElement {
     }
 
     /// Copies a JSON element within the JSON structure to a new location.
+    /// The source value is deep-copied before insertion into a child path.
+    /// A root destination directly replaces the document with the source value.
     ///
     /// - Parameters:
     ///   - from: The location of the value to copy.
     ///   - to: The location to insert the new value.
     public mutating func copy(from: JSONPointer, to: JSONPointer) throws {
-        guard let toParent = to.parent else {
+        guard to.parent != nil else {
             self = try evaluate(pointer: from)
             return
         }
 
-        guard let fromParent = from.parent else {
-            throw JSONError.referencesNonexistentValue
-        }
-
-        let fromParentElement = try makePathMutable(fromParent)
-        var toParentElement = try makePathMutable(toParent)
-        let value = try fromParentElement.value(for: from.lastComponent!)
+        let value = try evaluate(pointer: from)
         let valueCopy = try value.copy()
-        try toParentElement.setValue(valueCopy, component: to.lastComponent!, replace: false)
+        try add(value: valueCopy, to: to)
     }
 
     /// Tests a value within the JSON structure against the given value.

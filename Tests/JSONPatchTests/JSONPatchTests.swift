@@ -25,6 +25,16 @@ import Testing
 struct JSONPatchTests {
 
     @Test(arguments: [false, true])
+    func testRootCopyPatch(_ ignoreNonexistentValues: Bool) throws {
+        let document = try JSONSerialization.jsonObject(with: Data(#"{"a":1}"#.utf8), options: [.mutableContainers])
+        let patch = try JSONPatch(data: Data(#"[{"op":"copy","from":"","path":"/backup"}]"#.utf8))
+        let options: [JSONPatch.ApplyOption] = ignoreNonexistentValues ? [.ignoreNonexistentValues] : []
+        let result = try JSONElement(any: patch.apply(to: document, options: options))
+        let expected = try JSONSerialization.jsonElement(with: Data(#"{"a":1,"backup":{"a":1}}"#.utf8), options: [])
+        #expect(result == expected)
+    }
+
+    @Test(arguments: [false, true])
     func testRecursiveMoveStopsPatch(_ ignoreNonexistentValues: Bool) throws {
         let json = Data(#"{"a":{"b":[],"value":1}}"#.utf8)
         let document = try JSONSerialization.jsonObject(with: json, options: [.mutableContainers])
