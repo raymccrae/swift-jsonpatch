@@ -17,19 +17,16 @@ let package = Package(
             name: "JSONPatch",
             targets: ["JSONPatch"]),
     ],
-    dependencies: [
-        // Dependencies declare other packages that this package depends on.
-        .package(url: "https://github.com/apple/swift-testing.git", from: "0.9.0"),
-    ],
     targets: [
         // Targets are the basic building blocks of a package. A target can define a module or a test suite.
         // Targets can depend on other targets in this package, and on products in packages which this package depends on.
         .target(
             name: "JSONPatch",
-            dependencies: []),
+            dependencies: [],
+            exclude: ["Info.plist"]),
         .testTarget(
             name: "JSONPatchTests",
-            dependencies: ["JSONPatch", .product(name: "Testing", package: "swift-testing")],
+            dependencies: ["JSONPatch"],
             path: "Tests",
             exclude: ["JSONPatchTests/Info.plist"],
             resources: [
@@ -41,5 +38,6 @@ let package = Package(
                 .process("JSONPatchTests/bigpatch.json")
             ]
         )
-    ]
+    ],
+    swiftLanguageModes: [.v6]
 )

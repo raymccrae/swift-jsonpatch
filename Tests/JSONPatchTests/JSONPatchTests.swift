@@ -37,9 +37,9 @@ struct JSONPatchTests {
             Issue.record("Expected JSONError.patchTestFailed")
         } catch JSONError.patchTestFailed(let path, let expected, let found) {
             #expect(path == "/value")
-            #expect(try JSONElement(any: expected) == JSONElement(2))
+            #expect(try JSONElement(any: expected.jsonObject()) == JSONElement(2))
             let actual = try #require(found)
-            #expect(try JSONElement(any: actual) == JSONElement(1))
+            #expect(try JSONElement(any: actual.jsonObject()) == JSONElement(1))
         }
 
         #expect(try JSONElement(any: document) == original)
@@ -71,20 +71,6 @@ struct JSONPatchTests {
         }
 
         #expect(try JSONElement(any: document) == original)
-    }
-
-    private class BundleToken {}
-
-    private static func testBundleURL(forResource name: String, withExtension ext: String?) -> URL {
-        let bundle = Bundle(for: BundleToken.self)
-        if let url = bundle.url(forResource: name, withExtension: ext) {
-            return url
-        } else {
-            // Fallback to source directory
-            let cwd = FileManager.default.currentDirectoryPath
-            let sourceDir = URL(fileURLWithPath: cwd).appendingPathComponent("Tests").appendingPathComponent("JSONPatchTests")
-            return sourceDir.appendingPathComponent(name).appendingPathExtension(ext ?? "")
-        }
     }
 
     func evaluate(path: String, on json: JSONElement) -> JSONElement? {
@@ -161,9 +147,9 @@ struct JSONPatchTests {
     }
 
     @Test func testLargeJson() throws {
-        let sourceURL = Self.testBundleURL(forResource: "bigexample1", withExtension: "json")
-        let targetURL = Self.testBundleURL(forResource: "bigexample2", withExtension: "json")
-        let patchURL = Self.testBundleURL(forResource: "bigpatch", withExtension: "json")
+        let sourceURL = try TestResources.url(forResource: "bigexample1", withExtension: "json")
+        let targetURL = try TestResources.url(forResource: "bigexample2", withExtension: "json")
+        let patchURL = try TestResources.url(forResource: "bigpatch", withExtension: "json")
 
         let sourceData = try Data(contentsOf: sourceURL)
         let targetData = try Data(contentsOf: targetURL)
@@ -178,8 +164,8 @@ struct JSONPatchTests {
     }
 
     @Test func testLargeJSONPerformance() throws {
-        let sourceURL = Self.testBundleURL(forResource: "bigexample1", withExtension: "json")
-        let patchURL = Self.testBundleURL(forResource: "bigpatch", withExtension: "json")
+        let sourceURL = try TestResources.url(forResource: "bigexample1", withExtension: "json")
+        let patchURL = try TestResources.url(forResource: "bigpatch", withExtension: "json")
 
         let sourceData = try Data(contentsOf: sourceURL)
         let patchData = try Data(contentsOf: patchURL)

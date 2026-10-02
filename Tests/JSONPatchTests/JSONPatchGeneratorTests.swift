@@ -24,33 +24,8 @@ import Testing
 
 struct JSONPatchGeneratorTests {
 
-    private class BundleToken {}
-
-    static var sourceURL: URL {
-        let bundle = Bundle(for: BundleToken.self)
-        if let url = bundle.url(forResource: "bigexample1", withExtension: "json") {
-            return url
-        } else {
-            // Fallback to source directory for environments where bundle is not available
-            let cwd = FileManager.default.currentDirectoryPath
-            let sourceDir = URL(fileURLWithPath: cwd).appendingPathComponent("Tests").appendingPathComponent("JSONPatchTests")
-            return sourceDir.appendingPathComponent("bigexample1.json")
-        }
-    }
-
-    static var targetURL: URL {
-        let bundle = Bundle(for: BundleToken.self)
-        if let url = bundle.url(forResource: "bigexample2", withExtension: "json") {
-            return url
-        } else {
-            let cwd = FileManager.default.currentDirectoryPath
-            let sourceDir = URL(fileURLWithPath: cwd).appendingPathComponent("Tests").appendingPathComponent("JSONPatchTests")
-            return sourceDir.appendingPathComponent("bigexample2.json")
-        }
-    }
-
-    var sourceData: Data { return try! Data(contentsOf: JSONPatchGeneratorTests.sourceURL) }
-    var targetData: Data { return try! Data(contentsOf: JSONPatchGeneratorTests.targetURL) }
+    var sourceData: Data { get throws { try TestResources.data("bigexample1") } }
+    var targetData: Data { get throws { try TestResources.data("bigexample2") } }
 
     @Test func testBigPatch() throws {
         var source = try JSONSerialization.jsonElement(with: sourceData, options: [.mutableContainers])

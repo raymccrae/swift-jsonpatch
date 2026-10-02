@@ -22,6 +22,7 @@ import Foundation
 
 /// JSON Element holds a reference an element of the parsed JSON structure
 /// produced by JSONSerialization.
+/// Values can retain mutable Foundation containers and must stay within one actor or task.
 public enum JSONElement {
     case object(value: NSDictionary)
     case mutableObject(value: NSMutableDictionary)
@@ -437,14 +438,14 @@ extension JSONElement {
             found = try evaluate(pointer: pointer)
         } catch {
             throw JSONError.patchTestFailed(path: pointer.string,
-                                            expected: value.rawValue,
+                                            expected: try JSONError.Value(jsonObject: value.rawValue),
                                             found: nil)
         }
 
         if found != value {
             throw JSONError.patchTestFailed(path: pointer.string,
-                                            expected: value.rawValue,
-                                            found: found.rawValue)
+                                            expected: try JSONError.Value(jsonObject: value.rawValue),
+                                            found: try JSONError.Value(jsonObject: found.rawValue))
         }
     }
 

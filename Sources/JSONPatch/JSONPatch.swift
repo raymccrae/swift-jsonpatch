@@ -25,6 +25,9 @@ import Foundation
 /// This implementation works with the representions of JSON produced with
 /// JSONSerialization.
 ///
+/// Instances can retain mutable Foundation values. Keep patches and their operations
+/// within one actor or task, and transfer their serialized `Data` between actors.
+///
 /// https://tools.ietf.org/html/rfc6902
 public class JSONPatch: Codable {
     
@@ -32,7 +35,7 @@ public class JSONPatch: Codable {
     public static let mimetype = "application/json-patch+json"
 
     /// Options given to the patch process.
-    public enum ApplyOption: Equatable {
+    public enum ApplyOption: Equatable, Sendable {
         /// By default the patch will be applied directly on to the json object
         /// given, which is the most memory efficient option. However when applying
         /// a patch directly the result is not atomic, if an error occurs then the

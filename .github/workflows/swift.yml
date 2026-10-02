@@ -1,0 +1,65 @@
+name: Swift 6
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  linux:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        swift: ['6.0.3', '6.2']
+    container: swift:${{ matrix.swift }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Debug and Release tests
+        run: |
+          swift --version
+          swift test -Xswiftc -warnings-as-errors
+          swift test --configuration release -Xswiftc -warnings-as-errors
+
+  macos:
+    runs-on: macos-15
+    strategy:
+      fail-fast: false
+      matrix:
+        xcode: ['16.2', '26.3']
+    steps:
+      - uses: actions/checkout@v4
+      - uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: ${{ matrix.xcode }}
+      - name: Debug and Release tests
+        working-directory: ${{ runner.temp }}
+        run: |
+          swift --version
+          swift test --package-path "$GITHUB_WORKSPACE" -Xswiftc -warnings-as-errors
+          swift test --package-path "$GITHUB_WORKSPACE" --configuration release -Xswiftc -warnings-as-errors
+      - name: Xcode tests
+        run: bash Scripts/check-apple.sh tests
+
+  distributions:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: '26.3'
+      # The macos-15 image includes CocoaPods, Carthage, and these platform runtimes.
+      - name: Check distribution tools
+        run: |
+          pod --version
+          carthage version
+      - name: Framework builds
+        run: bash Scripts/check-apple.sh frameworks
+      - name: CocoaPods local validation
+        run: pod lib lint RMJSONPatch.podspec --fail-fast
+      - name: Carthage XCFramework builds
+        run: carthage build --no-skip-current --use-xcframeworks --platform iOS,macOS,tvOS,watchOS
+      - name: Verify XCFramework platform slices
+        run: python3 Scripts/check-xcframework.py Carthage/Build/JSONPatch.xcframework ios macos tvos watchos

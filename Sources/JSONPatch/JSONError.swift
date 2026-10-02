@@ -27,7 +27,35 @@ public enum JSONError: Error {
     case referencesNonexistentValue
     case unknownPatchOperation
     case missingRequiredPatchField(op: String, index: Int, field: String)
-    case patchTestFailed(path: String, expected: Any, found: Any?)
+    /// Immutable JSON snapshots; a missing path has no `found` value, while JSON null does.
+    case patchTestFailed(path: String, expected: Value, found: Value?)
+}
+
+extension JSONError {
+    /// A JSON value captured as UTF-8 data, safe to transfer between actors.
+    public struct Value: Sendable {
+        /// The captured value as UTF-8 JSON, including top-level fragments.
+        public let data: Data
+
+        /// Captures a JSON-compatible value, including a top-level scalar or null.
+        /// - Throws: `JSONError.invalidObjectType` if the value cannot be represented as JSON.
+        public init(jsonObject: Any) throws {
+            // Wrapping the value validates fragments too, before invoking the writer.
+            guard JSONSerialization.isValidJSONObject([jsonObject]) else {
+                throw JSONError.invalidObjectType
+            }
+            do {
+                data = try JSONSerialization.data(withJSONObject: jsonObject, options: [.fragmentsAllowed])
+            } catch {
+                throw JSONError.invalidObjectType
+            }
+        }
+
+        /// Decodes a fresh Foundation representation of the snapshot.
+        public func jsonObject() throws -> Any {
+            try JSONSerialization.jsonObject(with: data, options: [.fragmentsAllowed])
+        }
+    }
 }
 
 extension JSONError: Equatable {

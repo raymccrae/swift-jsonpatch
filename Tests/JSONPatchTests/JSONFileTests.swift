@@ -24,20 +24,8 @@ import Testing
 
 struct JSONFileTests {
 
-    private class BundleToken {}
-
     private static func loadJSONTestFile(_ filename: String) throws -> [[String: Any]] {
-        let bundle = Bundle(for: BundleToken.self)
-        let url: URL
-        if let bundleURL = bundle.url(forResource: filename, withExtension: "json") {
-            url = bundleURL
-        } else {
-            // Fallback to source directory
-            let cwd = FileManager.default.currentDirectoryPath
-            let sourceDir = URL(fileURLWithPath: cwd).appendingPathComponent("Tests").appendingPathComponent("JSONPatchTests")
-            url = sourceDir.appendingPathComponent(filename).appendingPathExtension("json")
-        }
-        let data = try Data(contentsOf: url)
+        let data = try TestResources.data(filename)
         let jsonObject = try JSONSerialization.jsonObject(with: data, options: [])
         guard let jsonArray = jsonObject as? [[String: Any]] else {
             throw NSError(domain: "JSONFileTests", code: 2, userInfo: [NSLocalizedDescriptionKey: "Invalid JSON structure in \(filename).json"])

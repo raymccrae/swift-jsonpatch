@@ -6,12 +6,12 @@
 | ----------- | ------------------------------------------------------------ |
 | JSONPatch   | A class representing a RFC6902 json-patch.                   |
 | JSONPointer | A struct representing a RFC6901 json-pointer.                |
-| JSONElement | A struct wrapper that holds a reference to an element of a json document compatible with JSONSerialization. |
+| JSONElement | An enum wrapper that holds a reference to an element of a json document compatible with JSONSerialization. |
 | JSONError   | A enum representing all the errors that may be thrown by the methods within the JSONPatch library. |
 
 ## Creating JSONPatch Instance
 
-JSONPatch library is designed to work flexibly to work with a number of scenarios. The JSONPatch class represents a [RFC6902](https://tools.ietf.org/html/rfc6902) json-patch instance. This section demonstrates a number of ways a JSONPatch instance can be instantiated. Note that JSONPatch instances are immutable and can not be modified after creation.
+JSONPatch library is designed to work flexibly to work with a number of scenarios. The JSONPatch class represents a [RFC6902](https://tools.ietf.org/html/rfc6902) json-patch instance. This section demonstrates a number of ways a JSONPatch instance can be instantiated. The operations array is fixed after creation. Its values can retain mutable Foundation objects; see the [concurrency guide](Swift6Migration.md#use-jsonpatch-with-actors).
 
 ### Decoding a json-patch from Data
 
@@ -19,7 +19,7 @@ If you have a raw Data representation of the json-patch, then the below example 
 
 ```swift
 let data: Data = ... // wherever your app gets data from.
-let patch = JSONPatch(data: data)
+let patch = try JSONPatch(data: data)
 ```
 
 The data must be one of the supported encoding of [JSONSerialization](https://developer.apple.com/documentation/foundation/jsonserialization):- 
@@ -34,9 +34,9 @@ The previous scenario works if your json-patch is availble in isolation, if the 
 do {
     let jsonobj = try JSONSerialization.jsonObject(with: data)
     guard let jsondoc = jsonobj as? NSDictionary else { throw ParseError }
-    guard let subelement = jsondoc["patch"] as? NSArray { throw ParseError }
+    guard let subelement = jsondoc["patch"] as? NSArray else { throw ParseError }
     
-    let patch = JSONPatch(jsonArray: subelement)
+    let patch = try JSONPatch(jsonArray: subelement)
 } catch {
     // handle error
 }
@@ -72,7 +72,7 @@ let targetData = ... // a data representation of the after json document
 let patch = try! JSONPatch(source: sourceData, target: targetData)
 ```
 
-Alternatively if you would rather work with parsed json elements from JSONSerialization. Then wrap these elements in a JSONElement struct and initialise the JSONPatch with them. This approach can also be used when computing the patch based on sub-elements of the json document.
+Alternatively if you would rather work with parsed json elements from JSONSerialization. Then wrap these elements in a JSONElement enum and initialise the JSONPatch with them. This approach can also be used when computing the patch based on sub-elements of the json document.
 
 ```swift
 let source = ... // a JSONSerialization compatable json object - Before
@@ -105,7 +105,7 @@ Alternatively if you would rather work with parsed json elements from JSONSerial
 var jsonObject = try! JSONSerialization.jsonObject(with: data, options: [.mutableContainers])
 let patch = ... // a json patch
 
-jsonObject = try! patch.apply(to: jsonObject, inplace: true)
+jsonObject = try! patch.apply(to: jsonObject, options: [])
 ```
 
 ### Apply patch to a sub-element of a json document
@@ -117,7 +117,7 @@ let sourceData = ... // a data representation of the before json document
 let patch = ... // a json patch
 let pointer = try! JSONPointer(string: "/subelement")
 
-let patchedData = try! patch.apply(to: sourceData, relativeTo: pointer)
+let patchedData = try! patch.apply(to: sourceData, applyingOptions: [.relative(to: pointer)])
 ```
 
 ## Serializing a JSONPatch
@@ -153,10 +153,14 @@ struct Document: Codable {
 }
 
 do {
-    var encoder = JSONEncoder()
+    let encoder = JSONEncoder()
     let data = try encoder.encode(doc)
 } catch {
     // handle error
 }
 ```
 
+
+## Swift 6 errors and concurrency
+
+See the [Swift 6 migration guide](Swift6Migration.md) for failed-test snapshots, missing-versus-null behavior, and actor usage.

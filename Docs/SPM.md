@@ -1,38 +1,41 @@
-# Swift Package Manager
+# Install with Swift Package Manager
 
-## Xcode 11 SPM Integration
+Use Swift 6.0+ and, for Xcode integration, Xcode 16+.
+Version 2.0.0 is unreleased. To try this checkout, add it as a local package.
 
-Within the `File` menu go to `Swift Packages` -> `Add Package Dependency...`.
-![Step 1](images/xcode11-step1.jpg)
+## Add a local package in Xcode
 
-Search for `swift-jsonpatch`, select the repository and click the `Next` button.
-![Step 2](images/xcode11-step2.jpg)
+1. Select **File > Add Package Dependencies**.
+2. Select **Add Local** and choose this repository's directory.
+3. Add the `JSONPatch` product to your target.
 
-Enter the version number 1 and click the `Next` button.
-![Step 3](images/xcode11-step3.jpg)
+After v2.0.0 is released, use the repository URL `https://github.com/raymccrae/swift-jsonpatch.git` and select version 2.0.0 or later instead.
 
-Click the `Finish` button.
-![Step 4](images/xcode11-step4.jpg)
+## Configure Package.swift
 
-## Manual Swift Package Manager
-Add JSONPatch as a dependency to your projects Package.swift. For example: -
+For development, point the dependency at your local checkout. Replace `../swift-jsonpatch` with its path:
 
 ```swift
-// swift-tools-version:4.0
+// swift-tools-version:6.0
 import PackageDescription
 
 let package = Package(
     name: "YourProject",
+    platforms: [.macOS(.v10_15), .iOS(.v13)],
     dependencies: [
-        // Dependencies declare other packages that this package depends on.
-        .package(url: "https://github.com/raymccrae/swift-jsonpatch.git", .branch("master"))
+        .package(path: "../swift-jsonpatch")
     ],
     targets: [
-        // Targets are the basic building blocks of a package. A target can define a module or a test suite.
-        // Targets can depend on other targets in this package, and on products in packages which this package depends on.
-        .target(
-            name: "YourProject",
-            dependencies: ["JSONPatch"]),
-    ]
+        .target(name: "YourProject", dependencies: [
+            .product(name: "JSONPatch", package: "swift-jsonpatch")
+        ])
+    ],
+    swiftLanguageModes: [.v6]
 )
+```
+
+After v2.0.0 is released, replace the local dependency with:
+
+```swift
+.package(url: "https://github.com/raymccrae/swift-jsonpatch.git", from: "2.0.0")
 ```

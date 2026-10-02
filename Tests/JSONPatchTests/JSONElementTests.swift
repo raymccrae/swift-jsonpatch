@@ -41,11 +41,11 @@ struct JSONElementTests {
             Issue.record("Expected JSONError.patchTestFailed")
         } catch JSONError.patchTestFailed(let errorPath, let errorExpected, let errorFound) {
             #expect(errorPath == path)
-            #expect(try JSONElement(any: errorExpected) == expected)
+            #expect(try JSONElement(any: errorExpected.jsonObject()) == expected)
             let found = try #require(errorFound)
-            #expect(try JSONElement(any: found) == actual)
+            #expect(try JSONElement(any: found.jsonObject()) == actual)
             if actual == .null {
-                #expect(found is NSNull)
+                #expect(try found.jsonObject() is NSNull)
             }
         }
     }
@@ -57,7 +57,7 @@ struct JSONElementTests {
             Issue.record("Expected JSONError.patchTestFailed")
         } catch JSONError.patchTestFailed(let path, let expected, let found) {
             #expect(path == "/missing")
-            #expect(try JSONElement(any: expected) == JSONElement(2))
+            #expect(try JSONElement(any: expected.jsonObject()) == JSONElement(2))
             #expect(found == nil)
         }
     }
