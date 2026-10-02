@@ -75,6 +75,11 @@ struct JSONPointerTests {
         expectInvalidPointerSyntax("#/a~")
     }
 
+    @Test(arguments: ["", "ordinary_object_key", "e\u{0301}日本語👩‍💻", String(repeating: "abcdefgh", count: 128)])
+    func testEscapeWithoutSpecialCharacters(_ input: String) {
+        #expect(Array(JSONPointer.escape(input).unicodeScalars) == Array(input.unicodeScalars))
+    }
+
     @Test(arguments: [
         "/a~\u{0301}2b",
         "/a~\u{0301}",

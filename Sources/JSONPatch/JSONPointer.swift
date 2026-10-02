@@ -143,6 +143,10 @@ extension JSONPointer {
     ///   - unescaped: The unescaped string.
     /// - Returns: The escaped string.
     public static func escape(_ unescaped: String) -> String {
+        guard unescaped.unicodeScalars.contains(where: { $0 == "~" || $0 == "/" }) else {
+            return unescaped
+        }
+
         var value = ""
         for scalar in unescaped.unicodeScalars {
             switch scalar {
