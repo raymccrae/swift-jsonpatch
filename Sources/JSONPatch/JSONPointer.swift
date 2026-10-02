@@ -99,32 +99,27 @@ extension JSONPointer {
 
     private static func strictUnescape(_ escaped: String) throws -> String {
         var value = ""
-        var index = escaped.startIndex
+        // Escape syntax uses individual scalars; Character can group combining marks with them.
+        var scalars = escaped.unicodeScalars.makeIterator()
 
-        while index < escaped.endIndex {
-            let character = escaped[index]
-
-            guard character == "~" else {
-                value.append(character)
-                index = escaped.index(after: index)
+        while let scalar = scalars.next() {
+            guard scalar == "~" else {
+                value.unicodeScalars.append(scalar)
                 continue
             }
 
-            let escapeIndex = escaped.index(after: index)
-            guard escapeIndex < escaped.endIndex else {
+            guard let escape = scalars.next() else {
                 throw JSONError.invalidPointerSyntax
             }
 
-            switch escaped[escapeIndex] {
+            switch escape {
             case "0":
-                value.append("~")
+                value.unicodeScalars.append("~")
             case "1":
-                value.append("/")
+                value.unicodeScalars.append("/")
             default:
                 throw JSONError.invalidPointerSyntax
             }
-
-            index = escaped.index(after: escapeIndex)
         }
 
         return value
@@ -148,9 +143,17 @@ extension JSONPointer {
     ///   - unescaped: The unescaped string.
     /// - Returns: The escaped string.
     public static func escape(_ unescaped: String) -> String {
-        var value = unescaped
-        value = value.replacingOccurrences(of: "~", with: "~0")
-        value = value.replacingOccurrences(of: "/", with: "~1")
+        var value = ""
+        for scalar in unescaped.unicodeScalars {
+            switch scalar {
+            case "~":
+                value += "~0"
+            case "/":
+                value += "~1"
+            default:
+                value.unicodeScalars.append(scalar)
+            }
+        }
         return value
     }
 

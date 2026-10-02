@@ -75,6 +75,34 @@ struct JSONPointerTests {
         expectInvalidPointerSyntax("#/a~")
     }
 
+    @Test(arguments: [
+        "/a~\u{0301}2b",
+        "/a~\u{0301}",
+        "#/a%7E%CC%812b",
+        "#/a%7E%CC%81"
+    ])
+    func testInvalidUnicodeEscapes(_ string: String) {
+        expectInvalidPointerSyntax(string)
+    }
+
+    @Test(arguments: [
+        ("/a~0\u{0301}b", "a~\u{0301}b", "/a~0\u{0301}b"),
+        ("/a~1\u{0301}b", "a/\u{0301}b", "/a~1\u{0301}b"),
+        ("#/a%7E0%CC%81b", "a~\u{0301}b", "/a~0\u{0301}b"),
+        ("#/a%7E1%CC%81b", "a/\u{0301}b", "/a~1\u{0301}b"),
+        ("/e\u{0301}👩‍💻~0~1", "e\u{0301}👩‍💻~/", "/e\u{0301}👩‍💻~0~1")
+    ])
+    func testValidUnicodeEscapes(_ input: String, _ expected: String, _ serialized: String) throws {
+        let pointer = try JSONPointer(string: input)
+        let component = try #require(pointer.lastComponent)
+        #expect(Array(component.unicodeScalars) == Array(expected.unicodeScalars))
+        #expect(Array(pointer.string.unicodeScalars) == Array(serialized.unicodeScalars))
+
+        let reparsed = try JSONPointer(string: pointer.string)
+        let reparsedComponent = try #require(reparsed.lastComponent)
+        #expect(Array(reparsedComponent.unicodeScalars) == Array(expected.unicodeScalars))
+    }
+
     private func expectInvalidPointerSyntax(_ string: String) {
         do {
             _ = try JSONPointer(string: string)
