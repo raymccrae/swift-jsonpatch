@@ -125,7 +125,7 @@ do {
 }
 ```
 
-Alternatively if you would rather work with parsed json elements from JSONSerialization. This approach has options to apply the patch inplace, which results in the apply process modifying (where possible) the original json document with the updates in the patch, avoiding making a copy of the original document.
+You can also apply a patch to a parsed JSON document. By default, `apply(to:options:)` modifies mutable containers in the original document where possible. Assign the returned value to keep changes that replace the document's root.
 
 ```swift
 let patch = ... // a json patch
@@ -138,6 +138,37 @@ do {
     print("Cannot parse document or apply patch: \(error)")
 }
 ```
+
+### Handle partial changes when a patch fails
+
+Patch operations run in order. If an operation throws, earlier changes are not rolled back. When you apply a patch directly to mutable Foundation containers, the original document can be left partially changed. Even a single `move` operation can remove its source before inserting it at the destination fails.
+
+To preserve the original document, use `JSONPatch.apply(to:options:)` with `.applyOnCopy`. This method copies the document before applying the operations. In this example, the second operation fails because `/missing` does not exist, but the original `name` remains `"before"`:
+
+```swift
+import Foundation
+import JSONPatch
+
+let source = NSMutableDictionary(dictionary: ["name": "before"])
+let patchData = Data(#"[{"op":"replace","path":"/name","value":"after"},{"op":"remove","path":"/missing"}]"#.utf8)
+
+do {
+    let patch = try JSONPatch(data: patchData)
+    _ = try patch.apply(to: source as Any, options: [.applyOnCopy])
+} catch JSONError.referencesNonexistentValue {
+    print("Cannot apply patch: a referenced value does not exist.")
+} catch {
+    print("Cannot decode or apply patch: \(error)")
+}
+
+print(source["name"] as? String ?? "") // before
+```
+
+With `options: []`, the same example leaves `source["name"]` set to `"after"` when the patch throws. The `.applyOnCopy` behavior belongs to `JSONPatch.apply(to:options:)` for an `Any` document. Passing this option to `JSONElement.apply(patch:options:)` does not copy the element. The `Data` overload parses a separate document and returns transformed data only on success, so its input `Data` is unaffected by application failures.
+
+The `.ignoreNonexistentValues` option is a nonstandard extension to JSON Patch. It catches `JSONError.referencesNonexistentValue` raised while applying an operation and continues with the remaining operations. It does not roll back changes made by that operation: a `move` can remove its source, fail to find its destination, and then allow the patch to continue without the source value. It does not suppress failed `test` operations, including tests of missing paths, or errors from invalid patch documents. A missing path used by `.relative(to:)` also fails before any operation runs and is not ignored.
+
+For parsed documents, pass this option as `options: [.ignoreNonexistentValues]`. For `Data`, use `applyingOptions: [.ignoreNonexistentValues]`.
 
 ### Apply patch to a sub-element of a json document
 
