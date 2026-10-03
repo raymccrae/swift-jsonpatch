@@ -258,40 +258,49 @@ extension JSONPatch.Operation {
         case "add":
             let path: String = try JSONPatch.Operation.val(jsonObject, "add", "path", index)
             let value: Any = try JSONPatch.Operation.val(jsonObject, "add", "value", index)
-            let pointer = try JSONPointer(string: path)
+            let pointer = try Self.pointer(string: path)
             let element = try JSONElement(any: value)
             self = .add(path: pointer, value: element)
         case "remove":
             let path: String = try JSONPatch.Operation.val(jsonObject, "remove", "path", index)
-            let pointer = try JSONPointer(string: path)
+            let pointer = try Self.pointer(string: path)
             self = .remove(path: pointer)
         case "replace":
             let path: String = try JSONPatch.Operation.val(jsonObject, "replace", "path", index)
             let value: Any = try JSONPatch.Operation.val(jsonObject, "replace", "value", index)
-            let pointer = try JSONPointer(string: path)
+            let pointer = try Self.pointer(string: path)
             let element = try JSONElement(any: value)
             self = .replace(path: pointer, value: element)
         case "move":
             let from: String = try JSONPatch.Operation.val(jsonObject, "move", "from", index)
             let path: String = try JSONPatch.Operation.val(jsonObject, "move", "path", index)
-            let fpointer = try JSONPointer(string: from)
-            let ppointer = try JSONPointer(string: path)
+            let fpointer = try Self.pointer(string: from)
+            let ppointer = try Self.pointer(string: path)
             self = .move(from: fpointer, path: ppointer)
         case "copy":
             let from: String = try JSONPatch.Operation.val(jsonObject, "copy", "from", index)
             let path: String = try JSONPatch.Operation.val(jsonObject, "copy", "path", index)
-            let fpointer = try JSONPointer(string: from)
-            let ppointer = try JSONPointer(string: path)
+            let fpointer = try Self.pointer(string: from)
+            let ppointer = try Self.pointer(string: path)
             self = .copy(from: fpointer, path: ppointer)
         case "test":
             let path: String = try JSONPatch.Operation.val(jsonObject, "test", "path", index)
             let value: Any = try JSONPatch.Operation.val(jsonObject, "test", "value", index)
-            let pointer = try JSONPointer(string: path)
+            let pointer = try Self.pointer(string: path)
             let element = try JSONElement(any: value)
             self = .test(path: pointer, value: element)
         default:
             throw JSONError.unknownPatchOperation
         }
+    }
+
+    // Patch documents use the JSON-string pointer representation (RFC 6902 §4).
+    // Standalone JSONPointer parsing also supports URI fragments.
+    static func pointer(string: String) throws -> JSONPointer {
+        guard string.isEmpty || string.hasPrefix("/") else {
+            throw JSONError.invalidPointerSyntax
+        }
+        return try JSONPointer(string: string)
     }
 
     private static func val<T>(_ jsonObject: NSDictionary,

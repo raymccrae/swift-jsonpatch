@@ -255,3 +255,62 @@ struct JSONPatchTests {
         }
     }
 }
+
+struct OperationPointerSyntaxTests {
+    @Test(arguments: ["add", "remove", "replace", "move", "copy", "test"])
+    func rejectsFragmentPaths(op: String) throws {
+        for path in ["#", "#/x"] {
+            try assertRejected(["op": op, "path": path, "from": "/x", "value": 2])
+        }
+    }
+
+    @Test(arguments: ["move", "copy"])
+    func rejectsFragmentSources(op: String) throws {
+        for from in ["#", "#/x"] {
+            try assertRejected(["op": op, "path": "/x", "from": from])
+        }
+    }
+
+    @Test(arguments: ["add", "remove", "replace", "move", "copy", "test"])
+    func acceptsStringPointers(op: String) throws {
+        for pointer in ["", "/", "/x", "/#", "/x#y"] {
+            let object: NSDictionary = ["op": op, "path": pointer, "from": pointer, "value": 2]
+            let operation = try JSONPatch.Operation(jsonObject: object)
+            let data = try JSONSerialization.data(withJSONObject: [object])
+            #expect(try JSONPatch(jsonArray: [object]).operations == [operation])
+            #expect(try JSONPatch(data: data).operations == [operation])
+            #expect(try JSONDecoder().decode(JSONPatch.self, from: data).operations == [operation])
+            let operationData = try JSONSerialization.data(withJSONObject: object)
+            #expect(try JSONDecoder().decode(JSONPatch.Operation.self, from: operationData) == operation)
+        }
+    }
+
+    @Test func standalonePointersRetainFragmentSupport() throws {
+        for fragment in ["#", "#/x"] {
+            let pointer = try JSONPointer(string: fragment)
+            #expect(pointer.string == String(fragment.dropFirst()))
+            let data = try JSONEncoder().encode(fragment)
+            #expect(try JSONDecoder().decode(JSONPointer.self, from: data) == pointer)
+        }
+    }
+
+    private func assertRejected(_ object: NSDictionary) throws {
+        #expect(throws: JSONError.invalidPointerSyntax) {
+            _ = try JSONPatch.Operation(jsonObject: object)
+        }
+        #expect(throws: JSONError.invalidPointerSyntax) {
+            _ = try JSONPatch(jsonArray: [object])
+        }
+        let data = try JSONSerialization.data(withJSONObject: [object])
+        #expect(throws: JSONError.invalidPointerSyntax) {
+            _ = try JSONPatch(data: data)
+        }
+        #expect(throws: JSONError.invalidPointerSyntax) {
+            _ = try JSONDecoder().decode(JSONPatch.self, from: data)
+        }
+        let operationData = try JSONSerialization.data(withJSONObject: object)
+        #expect(throws: JSONError.invalidPointerSyntax) {
+            _ = try JSONDecoder().decode(JSONPatch.Operation.self, from: operationData)
+        }
+    }
+}

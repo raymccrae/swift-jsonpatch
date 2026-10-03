@@ -97,26 +97,26 @@ extension JSONPatch.Operation: Codable {
         let op = try container.decode(String.self, forKey: .op)
         switch op {
         case "add":
-            let path = try container.decode(JSONPointer.self, forKey: .path)
+            let path = try Self.pointer(string: container.decode(String.self, forKey: .path))
             let value = try container.decode(JSONElement.self, forKey: .value)
             self = .add(path: path, value: value)
         case "remove":
-            let path = try container.decode(JSONPointer.self, forKey: .path)
+            let path = try Self.pointer(string: container.decode(String.self, forKey: .path))
             self = .remove(path: path)
         case "replace":
-            let path = try container.decode(JSONPointer.self, forKey: .path)
+            let path = try Self.pointer(string: container.decode(String.self, forKey: .path))
             let value = try container.decode(JSONElement.self, forKey: .value)
             self = .replace(path: path, value: value)
         case "move":
-            let from = try container.decode(JSONPointer.self, forKey: .from)
-            let path = try container.decode(JSONPointer.self, forKey: .path)
+            let from = try Self.pointer(string: container.decode(String.self, forKey: .from))
+            let path = try Self.pointer(string: container.decode(String.self, forKey: .path))
             self = .move(from: from, path: path)
         case "copy":
-            let from = try container.decode(JSONPointer.self, forKey: .from)
-            let path = try container.decode(JSONPointer.self, forKey: .path)
+            let from = try Self.pointer(string: container.decode(String.self, forKey: .from))
+            let path = try Self.pointer(string: container.decode(String.self, forKey: .path))
             self = .copy(from: from, path: path)
         case "test":
-            let path = try container.decode(JSONPointer.self, forKey: .path)
+            let path = try Self.pointer(string: container.decode(String.self, forKey: .path))
             let value = try container.decode(JSONElement.self, forKey: .value)
             self = .test(path: path, value: value)
         default:
