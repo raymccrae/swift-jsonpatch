@@ -25,6 +25,69 @@ import Testing
 struct JSONElementTests {
 
     @Test(arguments: [
+        (#"{"a":1}"#, "/a/x"),
+        (#"{"a":"text"}"#, "/a/x"),
+        (#"{"a":true}"#, "/a/x"),
+        (#"{"a":null}"#, "/a/x"),
+        (#"{"a":{"b":1}}"#, "/a/b/x"),
+        (#"{"a":[null]}"#, "/a/0/x"),
+        ("1", "/x"),
+        (#""text""#, "/x"),
+        ("true", "/x"),
+        ("null", "/x")
+    ])
+    func testMutationThroughNoncontainerParent(_ json: String, _ path: String) throws {
+        let pointer = try JSONPointer(string: path)
+        let root = try JSONPointer(string: "")
+        let target = try JSONPointer(string: "/target")
+        let operations: [JSONPatch.Operation] = [
+            .add(path: pointer, value: JSONElement(2)),
+            .remove(path: pointer),
+            .replace(path: pointer, value: JSONElement(2)),
+            .copy(from: root, path: pointer),
+            .move(from: pointer, path: target)
+        ]
+
+        for readingOptions: JSONSerialization.ReadingOptions in [[.fragmentsAllowed], [.fragmentsAllowed, .mutableContainers]] {
+            for operation in operations {
+                var element = try JSONSerialization.jsonElement(with: Data(json.utf8), options: readingOptions)
+                let original = try element.copy()
+                #expect(throws: JSONError.referencesNonexistentValue) {
+                    try element.apply(operation)
+                }
+                #expect(element == original)
+            }
+        }
+    }
+
+    @Test(arguments: ["1", #""text""#, "true", "null"])
+    func testMoveDestinationThroughNoncontainerParent(_ parentJSON: String) throws {
+        for readingOptions: JSONSerialization.ReadingOptions in [[], [.mutableContainers]] {
+            var element = try JSONSerialization.jsonElement(
+                with: Data("{\"source\":2,\"a\":\(parentJSON)}".utf8), options: readingOptions)
+            let originalParent = try element.evaluate(pointer: JSONPointer(string: "/a"))
+            #expect(throws: JSONError.referencesNonexistentValue) {
+                try element.move(from: JSONPointer(string: "/source"), to: JSONPointer(string: "/a/x"))
+            }
+            // A move may remove its source before failing at the destination.
+            #expect(try element.evaluate(pointer: JSONPointer(string: "/a")) == originalParent)
+        }
+    }
+
+    @Test(arguments: ["/a", "/a/x"])
+    func testRelativeMutationThroughNoncontainerParent(_ path: String) throws {
+        for readingOptions: JSONSerialization.ReadingOptions in [[], [.mutableContainers]] {
+            var element = try JSONSerialization.jsonElement(with: Data(#"{"a":null}"#.utf8), options: readingOptions)
+            let original = try element.copy()
+            let patch = try JSONPatch(data: Data(#"[{"op":"add","path":"/x","value":2}]"#.utf8))
+            #expect(throws: JSONError.referencesNonexistentValue) {
+                try element.apply(patch: patch, options: [.relative(to: JSONPointer(string: path))])
+            }
+            #expect(element == original)
+        }
+    }
+
+    @Test(arguments: [
         (#"{"value":1}"#, "/value", "2", "1"),
         (#"{"value":{"a":1}}"#, "/value", #"{"a":2}"#, #"{"a":1}"#),
         (#"{"value":[1,2]}"#, "/value", "[1,3]", "[1,2]"),

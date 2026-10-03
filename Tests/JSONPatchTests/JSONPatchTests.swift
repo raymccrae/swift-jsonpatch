@@ -24,6 +24,19 @@ import Testing
 
 struct JSONPatchTests {
 
+    @Test func testInvalidScalarParentStopsPatch() throws {
+        let json = Data(#"{"a":1}"#.utf8)
+        let original = try JSONSerialization.jsonElement(with: json, options: [])
+        let patch = try JSONPatch(data: Data(#"[{"op":"add","path":"/a/x","value":2},{"op":"add","path":"/later","value":true}]"#.utf8))
+        for readingOptions: JSONSerialization.ReadingOptions in [[], [.mutableContainers]] {
+            let document = try JSONSerialization.jsonObject(with: json, options: readingOptions)
+            #expect(throws: JSONError.referencesNonexistentValue) {
+                _ = try patch.apply(to: document)
+            }
+            #expect(try JSONElement(any: document) == original)
+        }
+    }
+
     @Test(arguments: [false, true])
     func testMismatchPreservesPayloadAndStopsPatch(_ ignoreNonexistentValues: Bool) throws {
         let json = Data(#"{"value":1}"#.utf8)

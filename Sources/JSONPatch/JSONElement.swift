@@ -156,11 +156,13 @@ extension JSONElement {
     /// a deep copy. Only the reciever's raw value is copied to a new mutable container.
     /// If a deep copy is required then see the copy method.
     /// If the receiver is already mutable then this method has no effect.
-    private mutating func makeMutable() {
+    private mutating func makeMutable() throws {
         switch self {
         case .object(let dictionary):
             #if os(Linux)
-            guard let mutable = dictionary.mutableCopy() as? NSMutableDictionary else { return }
+            guard let mutable = dictionary.mutableCopy() as? NSMutableDictionary else {
+                throw JSONError.invalidObjectType
+            }
             #else
             let mutable = NSMutableDictionary(dictionary: dictionary)
             #endif
@@ -171,8 +173,7 @@ extension JSONElement {
         case .mutableObject, .mutableArray:
             break
         case .string, .number, .null:
-            assertionFailure("Unsupported type to make mutable")
-            break
+            throw JSONError.referencesNonexistentValue
         }
     }
 
@@ -184,7 +185,7 @@ extension JSONElement {
     /// - Returns: The last json element in the path.
     private mutating func makePathMutable(_ pointer: JSONPointer) throws -> JSONElement {
         if !self.isMutable {
-            self.makeMutable()
+            try self.makeMutable()
         }
 
         guard pointer.string != "/" else {
@@ -195,7 +196,7 @@ extension JSONElement {
         for component in pointer {
             var child = try element.value(for: component)
             if !child.isMutable {
-                child.makeMutable()
+                try child.makeMutable()
                 try element.setValue(child, component: component, replace: true)
             }
             element = child
@@ -280,8 +281,7 @@ extension JSONElement {
                 }
             }
         default:
-            assertionFailure("Receiver is not a mutable container")
-            break
+            throw JSONError.referencesNonexistentValue
         }
     }
 
@@ -317,8 +317,7 @@ extension JSONElement {
                 array.removeObject(at: index)
             }
         default:
-            assertionFailure("Receiver is not a mutable container")
-            break
+            throw JSONError.referencesNonexistentValue
         }
     }
 
