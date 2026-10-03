@@ -24,6 +24,161 @@ import Testing
 
 struct JSONElementTests {
 
+    @Test(arguments: ["[]", "[1,2]"])
+    func testArrayAppendTokenHasNoExistingValue(_ json: String) throws {
+        let append = try JSONPointer(string: "/-")
+        let root = try JSONPointer(string: "")
+        let operations: [JSONPatch.Operation] = [
+            .remove(path: append),
+            .replace(path: append, value: JSONElement(3)),
+            .copy(from: append, path: root),
+            .copy(from: append, path: append),
+            .move(from: append, path: root),
+            .move(from: append, path: append)
+        ]
+        for options: JSONSerialization.ReadingOptions in [[], [.mutableContainers]] {
+            var element = try JSONSerialization.jsonElement(with: Data(json.utf8), options: options)
+            let original = try element.copy()
+            #expect(throws: JSONError.referencesNonexistentValue) {
+                try element.evaluate(pointer: append)
+            }
+            for operation in operations {
+                #expect(throws: JSONError.referencesNonexistentValue) {
+                    try element.apply(operation)
+                }
+                #expect(element == original)
+            }
+            do {
+                try element.test(value: JSONElement(2), at: append)
+                Issue.record("Expected an array append token test to fail")
+            } catch JSONError.patchTestFailed(let path, _, let found) {
+                #expect(path == "/-")
+                #expect(found == nil)
+            }
+        }
+    }
+
+    @Test func testArrayAppendTokenCannotTraverseToChild() throws {
+        let child = try JSONPointer(string: "/-/x")
+        let root = try JSONPointer(string: "")
+        let operations: [JSONPatch.Operation] = [
+            .add(path: child, value: JSONElement(2)),
+            .remove(path: child),
+            .replace(path: child, value: JSONElement(2)),
+            .copy(from: root, path: child),
+            .copy(from: child, path: root),
+            .move(from: child, path: root)
+        ]
+        for options: JSONSerialization.ReadingOptions in [[], [.mutableContainers]] {
+            var element = try JSONSerialization.jsonElement(with: Data(#"[{"x":1}]"#.utf8), options: options)
+            let original = try element.copy()
+            for operation in operations {
+                #expect(throws: JSONError.referencesNonexistentValue) {
+                    try element.apply(operation)
+                }
+                #expect(element == original)
+            }
+            #expect(throws: JSONError.referencesNonexistentValue) {
+                try element.evaluate(pointer: child)
+            }
+            do {
+                try element.test(value: JSONElement(1), at: child)
+                Issue.record("Expected traversal through an array append token to fail")
+            } catch JSONError.patchTestFailed(let path, _, let found) {
+                #expect(path == "/-/x")
+                #expect(found == nil)
+            }
+        }
+    }
+
+    @Test func testMoveDestinationCannotTraverseArrayAppendToken() throws {
+        for options: JSONSerialization.ReadingOptions in [[], [.mutableContainers]] {
+            var element = try JSONSerialization.jsonElement(
+                with: Data(#"{"source":2,"items":[{"x":1}]}"#.utf8), options: options)
+            let originalItems = try element.evaluate(pointer: JSONPointer(string: "/items"))
+            #expect(throws: JSONError.referencesNonexistentValue) {
+                try element.move(from: JSONPointer(string: "/source"), to: JSONPointer(string: "/items/-/x"))
+            }
+            // The source can be removed before the destination traversal fails.
+            #expect(try element.evaluate(pointer: JSONPointer(string: "/items")) == originalItems)
+        }
+    }
+
+    @Test(arguments: ["/-", "/-/x"])
+    func testArrayAppendTokenCannotBeRelativeRoot(_ path: String) throws {
+        let patch = try JSONPatch(data: Data(#"[{"op":"replace","path":"","value":2}]"#.utf8))
+        for options: JSONSerialization.ReadingOptions in [[], [.mutableContainers]] {
+            var element = try JSONSerialization.jsonElement(with: Data(#"[{"x":1}]"#.utf8), options: options)
+            let original = try element.copy()
+            #expect(throws: JSONError.referencesNonexistentValue) {
+                try element.apply(patch: patch, options: [.relative(to: JSONPointer(string: path))])
+            }
+            #expect(element == original)
+        }
+    }
+
+    @Test(arguments: [
+        ("[]", #"[{"op":"add","path":"/-","value":3}]"#, "[3]"),
+        ("[1,2]", #"[{"op":"add","path":"/-","value":3}]"#, "[1,2,3]"),
+        ("[1,2]", #"[{"op":"copy","from":"/0","path":"/-"}]"#, "[1,2,1]"),
+        ("[1,2]", #"[{"op":"move","from":"/0","path":"/-"}]"#, "[2,1]"),
+        (#"{"source":3,"items":[]}"#, #"[{"op":"copy","from":"/source","path":"/items/-"}]"#, #"{"source":3,"items":[3]}"#),
+        (#"{"source":3,"items":[]}"#, #"[{"op":"move","from":"/source","path":"/items/-"}]"#, #"{"items":[3]}"#)
+    ])
+    func testArrayAppendDestinations(_ json: String, _ patchJSON: String, _ expectedJSON: String) throws {
+        let patch = try JSONPatch(data: Data(patchJSON.utf8))
+        let expected = try JSONSerialization.jsonElement(with: Data(expectedJSON.utf8), options: [])
+        for options: JSONSerialization.ReadingOptions in [[], [.mutableContainers]] {
+            var element = try JSONSerialization.jsonElement(with: Data(json.utf8), options: options)
+            try element.apply(patch: patch)
+            #expect(element == expected)
+        }
+    }
+
+    @Test(arguments: [
+        (#"[{"op":"add","path":"/-","value":2}]"#, #"{"-":2,"target":0}"#),
+        (#"[{"op":"remove","path":"/-"}]"#, #"{"target":0}"#),
+        (#"[{"op":"replace","path":"/-","value":2}]"#, #"{"-":2,"target":0}"#),
+        (#"[{"op":"test","path":"/-","value":{"x":1}}]"#, #"{"-":{"x":1},"target":0}"#),
+        (#"[{"op":"copy","from":"/-","path":"/target"}]"#, #"{"-":{"x":1},"target":{"x":1}}"#),
+        (#"[{"op":"move","from":"/-","path":"/target"}]"#, #"{"target":{"x":1}}"#),
+        (#"[{"op":"copy","from":"/target","path":"/-"}]"#, #"{"-":0,"target":0}"#),
+        (#"[{"op":"move","from":"/target","path":"/-"}]"#, #"{"-":0}"#),
+        (#"[{"op":"replace","path":"/-/x","value":2}]"#, #"{"-":{"x":2},"target":0}"#)
+    ])
+    func testObjectDashProperty(_ patchJSON: String, _ expectedJSON: String) throws {
+        let patch = try JSONPatch(data: Data(patchJSON.utf8))
+        let expected = try JSONSerialization.jsonElement(with: Data(expectedJSON.utf8), options: [])
+        for options: JSONSerialization.ReadingOptions in [[], [.mutableContainers]] {
+            var element = try JSONSerialization.jsonElement(
+                with: Data(#"{"-":{"x":1},"target":0}"#.utf8), options: options)
+            try element.apply(patch: patch)
+            #expect(element == expected)
+        }
+    }
+
+    @Test func testRelativeMutationOfObjectDashProperty() throws {
+        let patch = try JSONPatch(data: Data(#"[{"op":"replace","path":"/x","value":2}]"#.utf8))
+        let expected = try JSONSerialization.jsonElement(with: Data(#"{"-":{"x":2}}"#.utf8), options: [])
+        for options: JSONSerialization.ReadingOptions in [[], [.mutableContainers]] {
+            var element = try JSONSerialization.jsonElement(with: Data(#"{"-":{"x":1}}"#.utf8), options: options)
+            try element.apply(patch: patch, options: [.relative(to: JSONPointer(string: "/-"))])
+            #expect(element == expected)
+        }
+    }
+
+    @Test(arguments: [("[]", "/0"), ("[1,2]", "/2")])
+    func testReplaceAtArrayEndFails(_ json: String, _ path: String) throws {
+        for options: JSONSerialization.ReadingOptions in [[], [.mutableContainers]] {
+            var element = try JSONSerialization.jsonElement(with: Data(json.utf8), options: options)
+            let original = try element.copy()
+            #expect(throws: JSONError.referencesNonexistentValue) {
+                try element.replace(value: JSONElement(3), to: JSONPointer(string: path))
+            }
+            #expect(element == original)
+        }
+    }
+
     @Test(arguments: [
         (#"[{"op":"add","path":"//added","value":2}]"#, #"{"":{"x":1,"source":3,"added":2},"x":9,"source":8}"#),
         (#"[{"op":"remove","path":"//x"}]"#, #"{"":{"source":3},"x":9,"source":8}"#),

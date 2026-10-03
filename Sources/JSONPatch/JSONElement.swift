@@ -219,14 +219,6 @@ extension JSONElement {
             let child = try JSONElement(any: property)
             return child
 
-        case .array(let array) where component == "-",
-             .mutableArray(let array as NSArray) where component == "-":
-            guard let lastElement = array.lastObject else {
-                throw JSONError.referencesNonexistentValue
-            }
-            let child = try JSONElement(any: lastElement)
-            return child
-
         case .array(let array), .mutableArray(let array as NSArray):
             guard
                 JSONPointer.isValidArrayIndex(component),
@@ -258,16 +250,16 @@ extension JSONElement {
             dictionary[component] = value.rawValue
         case .mutableArray(let array):
             if component == "-" {
-                if replace && array.count > 0 {
-                    array.replaceObject(at: array.count - 1, with: value.rawValue)
-                } else {
-                    array.add(value.rawValue)
+                guard !replace else {
+                    throw JSONError.referencesNonexistentValue
                 }
+                array.add(value.rawValue)
             } else {
                 guard
                     JSONPointer.isValidArrayIndex(component),
                     let index = Int(component),
-                    0...array.count ~= index else {
+                    index >= 0,
+                    replace ? index < array.count : index <= array.count else {
                         throw JSONError.referencesNonexistentValue
                 }
                 if replace {
@@ -297,21 +289,13 @@ extension JSONElement {
             }
             dictionary.removeObject(forKey: component)
         case .mutableArray(let array):
-            if component == "-" {
-                guard array.count > 0 else {
+            guard
+                JSONPointer.isValidArrayIndex(component),
+                let index = Int(component),
+                0..<array.count ~= index else {
                     throw JSONError.referencesNonexistentValue
-                }
-                array.removeLastObject()
-            } else {
-                guard
-                    JSONPointer.isValidArrayIndex(component),
-                    let index = Int(component),
-                    0..<array.count ~= index else {
-                        throw JSONError.referencesNonexistentValue
-
-                }
-                array.removeObject(at: index)
             }
+            array.removeObject(at: index)
         default:
             throw JSONError.referencesNonexistentValue
         }
