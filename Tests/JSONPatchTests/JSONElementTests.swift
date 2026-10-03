@@ -25,6 +25,62 @@ import Testing
 struct JSONElementTests {
 
     @Test(arguments: [
+        (#"[{"op":"add","path":"//added","value":2}]"#, #"{"":{"x":1,"source":3,"added":2},"x":9,"source":8}"#),
+        (#"[{"op":"remove","path":"//x"}]"#, #"{"":{"source":3},"x":9,"source":8}"#),
+        (#"[{"op":"replace","path":"//x","value":2}]"#, #"{"":{"x":2,"source":3},"x":9,"source":8}"#),
+        (#"[{"op":"move","from":"//source","path":"//x"}]"#, #"{"":{"x":3},"x":9,"source":8}"#),
+        (#"[{"op":"copy","from":"//source","path":"//x"}]"#, #"{"":{"x":3,"source":3},"x":9,"source":8}"#),
+        (#"[{"op":"move","from":"//source","path":"/destination"}]"#, #"{"":{"x":1},"x":9,"source":8,"destination":3}"#),
+        (#"[{"op":"move","from":"/source","path":"//x"}]"#, #"{"":{"x":8,"source":3},"x":9}"#),
+        (#"[{"op":"copy","from":"/source","path":"//x"}]"#, #"{"":{"x":8,"source":3},"x":9,"source":8}"#)
+    ])
+    func testMutationsBeneathEmptyProperty(_ patchJSON: String, _ expectedJSON: String) throws {
+        let patch = try JSONPatch(data: Data(patchJSON.utf8))
+        let expected = try JSONSerialization.jsonElement(with: Data(expectedJSON.utf8), options: [])
+        for options: JSONSerialization.ReadingOptions in [[], [.mutableContainers]] {
+            var element = try JSONSerialization.jsonElement(
+                with: Data(#"{"":{"x":1,"source":3},"x":9,"source":8}"#.utf8), options: options)
+            try element.apply(patch: patch)
+            #expect(element == expected)
+        }
+    }
+
+    @Test(arguments: [false, true])
+    func testNestedEmptyPropertyMutation(_ relative: Bool) throws {
+        let patchJSON = relative
+            ? #"[{"op":"replace","path":"/x","value":2}]"#
+            : #"[{"op":"replace","path":"/outer///x","value":2}]"#
+        let patch = try JSONPatch(data: Data(patchJSON.utf8))
+        let expected = try JSONSerialization.jsonElement(
+            with: Data(#"{"outer":{"":{"":{"x":2},"x":7},"x":8},"x":9}"#.utf8), options: [])
+        let applyOptions: [JSONPatch.ApplyOption] = relative
+            ? [.relative(to: try JSONPointer(string: "/outer//"))] : []
+        for options: JSONSerialization.ReadingOptions in [[], [.mutableContainers]] {
+            var element = try JSONSerialization.jsonElement(
+                with: Data(#"{"outer":{"":{"":{"x":1},"x":7},"x":8},"x":9}"#.utf8), options: options)
+            try element.apply(patch: patch, options: applyOptions)
+            #expect(element == expected)
+        }
+    }
+
+    @Test(arguments: ["/", "//nested"])
+    func testRelativeMutationBeneathEmptyProperty(_ relativePath: String) throws {
+        let patch = try JSONPatch(data: Data(#"[{"op":"replace","path":"/x","value":2}]"#.utf8))
+        let json = relativePath == "/"
+            ? #"{"":{"x":1},"x":9}"#
+            : #"{"":{"nested":{"x":1}},"nested":{"x":8},"x":9}"#
+        let expectedJSON = relativePath == "/"
+            ? #"{"":{"x":2},"x":9}"#
+            : #"{"":{"nested":{"x":2}},"nested":{"x":8},"x":9}"#
+        let expected = try JSONSerialization.jsonElement(with: Data(expectedJSON.utf8), options: [])
+        for options: JSONSerialization.ReadingOptions in [[], [.mutableContainers]] {
+            var element = try JSONSerialization.jsonElement(with: Data(json.utf8), options: options)
+            try element.apply(patch: patch, options: [.relative(to: JSONPointer(string: relativePath))])
+            #expect(element == expected)
+        }
+    }
+
+    @Test(arguments: [
         (#"{"a":1}"#, "/a/x"),
         (#"{"a":"text"}"#, "/a/x"),
         (#"{"a":true}"#, "/a/x"),

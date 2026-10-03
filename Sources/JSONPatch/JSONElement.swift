@@ -188,10 +188,6 @@ extension JSONElement {
             try self.makeMutable()
         }
 
-        guard pointer.string != "/" else {
-            return self
-        }
-
         var element = self
         for component in pointer {
             var child = try element.value(for: component)
