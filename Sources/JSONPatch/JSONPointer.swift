@@ -36,6 +36,11 @@ public struct JSONPointer: Sendable {
 
 extension JSONPointer {
 
+    /// RFC 6901 token matching preserves Unicode scalar spellings without normalization.
+    static func tokensEqual(_ lhs: String, _ rhs: String) -> Bool {
+        lhs.unicodeScalars.elementsEqual(rhs.unicodeScalars)
+    }
+
     /// A json-pointer that represents the whole json document.
     static let wholeDocument: JSONPointer = JSONPointer(components: [])
 
@@ -236,13 +241,19 @@ extension JSONPointer: Equatable {
     ///   - rhs: Right-hand side of the equality test.
     /// - Returns: true is the lhs is equal to the rhs.
     public static func == (lhs: JSONPointer, rhs: JSONPointer) -> Bool {
-        return lhs.components == rhs.components
+        return lhs.components.elementsEqual(rhs.components, by: tokensEqual)
     }
 }
 
 extension JSONPointer: Hashable {
     public func hash(into hasher: inout Hasher) {
-        hasher.combine(components)
+        hasher.combine(components.count)
+        for component in components {
+            hasher.combine(component.unicodeScalars.count)
+            for scalar in component.unicodeScalars {
+                hasher.combine(scalar.value)
+            }
+        }
     }
 }
 

@@ -383,7 +383,7 @@ extension JSONElement {
     ///   - from: The location of the JSON element to move.
     ///   - to: The location to move the value to.
     public mutating func move(from: JSONPointer, to: JSONPointer) throws {
-        guard !(from.count < to.count && to.prefix(from.count).elementsEqual(from)) else {
+        guard !(from.count < to.count && to.prefix(from.count).elementsEqual(from, by: JSONPointer.tokensEqual)) else {
             throw JSONError.invalidPatchFormat
         }
 

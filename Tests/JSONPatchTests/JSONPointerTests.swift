@@ -108,6 +108,26 @@ struct JSONPointerTests {
         #expect(Array(reparsedComponent.unicodeScalars) == Array(expected.unicodeScalars))
     }
 
+    @Test func testUnicodeScalarPointerIdentity() throws {
+        let composed = try JSONPointer(string: "/\u{00e9}~1~0")
+        let decomposed = try JSONPointer(string: "/e\u{0301}~1~0")
+        let fragment = try JSONPointer(string: "#/%C3%A9~1~0")
+
+        #expect(composed != decomposed)
+        #expect(composed == fragment)
+        #expect(Set([composed, decomposed, fragment]).count == 2)
+        var values = [composed: 1]
+        values[decomposed] = 2
+        #expect(values.count == 2)
+        #expect(values[fragment] == 1)
+        #expect(values[decomposed] == 2)
+
+        // Token boundaries also participate in pointer identity and hashing.
+        let singleToken = try JSONPointer(string: "/a~1b")
+        let twoTokens = try JSONPointer(string: "/a/b")
+        #expect(Set([singleToken, twoTokens]).count == 2)
+    }
+
     private func expectInvalidPointerSyntax(_ string: String) {
         do {
             _ = try JSONPointer(string: string)

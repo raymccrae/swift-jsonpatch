@@ -279,6 +279,51 @@ struct JSONElementTests {
         #expect(element == expected)
     }
 
+    @Test(arguments: ["", "/~"])
+    func testMoveBetweenDistinctUnicodeProperties(_ suffix: String) throws {
+        let composed = "\u{00e9}" + suffix
+        let decomposed = "e\u{0301}" + suffix
+        for mutable in [false, true] {
+            // Construct Foundation keys directly so Swift Dictionary cannot merge them.
+            let document = NSMutableDictionary()
+            document.setObject(NSNumber(value: 1), forKey: composed as NSString)
+            document.setObject(NSMutableDictionary(), forKey: decomposed as NSString)
+            #expect(document.count == 2)
+            var element: JSONElement = mutable
+                ? .mutableObject(value: document)
+                : .object(value: document.copy() as! NSDictionary)
+
+            try element.move(
+                from: JSONPointer(string: "/" + JSONPointer.escape(composed)),
+                to: JSONPointer(string: "/" + JSONPointer.escape(decomposed) + "/x"))
+
+            let result = try #require(element.rawValue as? NSDictionary)
+            #expect(result.count == 1)
+            #expect(result[composed] == nil)
+            let destination = try #require(result[decomposed] as? NSDictionary)
+            #expect(destination["x"] as? NSNumber == NSNumber(value: 1))
+        }
+    }
+
+    @Test(arguments: ["\u{00e9}", "e\u{0301}", "\u{00e9}/~", "e\u{0301}/~"])
+    func testRecursiveUnicodeMovePreservesDocument(_ key: String) throws {
+        let child = NSMutableDictionary()
+        child.setObject(NSNumber(value: 1), forKey: "value" as NSString)
+        let document = NSMutableDictionary()
+        document.setObject(child, forKey: key as NSString)
+        var element = JSONElement.mutableObject(value: document)
+        let source = try JSONPointer(string: "/" + JSONPointer.escape(key))
+        let destination = try JSONPointer(string: source.string + "/x")
+
+        #expect(throws: JSONError.invalidPatchFormat) {
+            try element.move(from: source, to: destination)
+        }
+        #expect(document.count == 1)
+        #expect(document[key] as? NSDictionary === child)
+        #expect(child.count == 1)
+        #expect(child["value"] as? NSNumber == NSNumber(value: 1))
+    }
+
     @Test func testNumericEquality() throws {
         let boolFalse = try JSONElement(any: NSNumber(value: false))
         let int0 = try JSONElement(any: NSNumber(value: 0))
