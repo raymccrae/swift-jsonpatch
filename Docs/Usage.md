@@ -19,7 +19,13 @@ If you have a raw Data representation of the json-patch, then the below example 
 
 ```swift
 let data: Data = ... // wherever your app gets data from.
-let patch = try JSONPatch(data: data)
+do {
+    let patch = try JSONPatch(data: data)
+    // Use the decoded patch here.
+} catch {
+    // Handle invalid JSON or patch operations, for example by reporting the error.
+    print("Cannot decode patch: \(error)")
+}
 ```
 
 The data must be one of the supported encoding of [JSONSerialization](https://developer.apple.com/documentation/foundation/jsonserialization):- 
@@ -31,14 +37,19 @@ The data must be one of the supported encoding of [JSONSerialization](https://de
 The previous scenario works if your json-patch is availble in isolation, if the data represents only the json-patch. However, if the json-patch is a sub-element of a larger json document and your app is using JSONSerialization to parse that json document; then JSONPatch can be initialized from a NSArray. You will need to extract the subelement of the parsed json object to get the array representing the json-patch.
 
 ```swift
+enum ParseError: Error {
+    case invalidDocument
+    case missingPatch
+}
+
 do {
     let jsonobj = try JSONSerialization.jsonObject(with: data)
-    guard let jsondoc = jsonobj as? NSDictionary else { throw ParseError }
-    guard let subelement = jsondoc["patch"] as? NSArray else { throw ParseError }
+    guard let jsondoc = jsonobj as? NSDictionary else { throw ParseError.invalidDocument }
+    guard let subelement = jsondoc["patch"] as? NSArray else { throw ParseError.missingPatch }
     
     let patch = try JSONPatch(jsonArray: subelement)
 } catch {
-    // handle error
+    print("Cannot decode patch: \(error)")
 }
 ```
 
@@ -57,7 +68,7 @@ do {
     
     let patch = doc.patch
 } catch {
-    // handle error
+    print("Cannot decode patch: \(error)")
 }
 ```
 
@@ -69,7 +80,12 @@ A json-patch can be computed from the differences between two json documents. Th
 let sourceData = ... // a data representation of the before json document
 let targetData = ... // a data representation of the after json document
 
-let patch = try! JSONPatch(source: sourceData, target: targetData)
+do {
+    let patch = try JSONPatch(source: sourceData, target: targetData)
+    // Use the generated patch here.
+} catch {
+    print("Cannot generate patch: \(error)")
+}
 ```
 
 Alternatively if you would rather work with parsed json elements from JSONSerialization. Then wrap these elements in a JSONElement enum and initialise the JSONPatch with them. This approach can also be used when computing the patch based on sub-elements of the json document.
@@ -78,10 +94,15 @@ Alternatively if you would rather work with parsed json elements from JSONSerial
 let source = ... // a JSONSerialization compatable json object - Before
 let target = ... // a JSONSerialization compatable json object - After
 
-let sourceElement = try! JSONElement(any: source)
-let targetElement = try! JSONElement(any: target)
+do {
+    let sourceElement = try JSONElement(any: source)
+    let targetElement = try JSONElement(any: target)
 
-let patch = try! JSONPatch(source: sourceElement, target: targetElement)
+    let patch = try JSONPatch(source: sourceElement, target: targetElement)
+    // Use the generated patch here.
+} catch {
+    print("Cannot generate patch: \(error)")
+}
 ```
 
 ## Applying a JSONPatch
@@ -96,16 +117,26 @@ JSONPatch can be applied to Data representations of a json document.
 let sourceData = ... // a data representation of the before json document
 let patch = ... // a json patch
 
-let patchedData = try! patch.apply(to: sourceData)
+do {
+    let patchedData = try patch.apply(to: sourceData)
+    // Use the transformed document here.
+} catch {
+    print("Cannot apply patch: \(error)")
+}
 ```
 
 Alternatively if you would rather work with parsed json elements from JSONSerialization. This approach has options to apply the patch inplace, which results in the apply process modifying (where possible) the original json document with the updates in the patch, avoiding making a copy of the original document.
 
 ```swift
-var jsonObject = try! JSONSerialization.jsonObject(with: data, options: [.mutableContainers])
 let patch = ... // a json patch
 
-jsonObject = try! patch.apply(to: jsonObject, options: [])
+do {
+    var jsonObject = try JSONSerialization.jsonObject(with: data, options: [.mutableContainers])
+    jsonObject = try patch.apply(to: jsonObject, options: [])
+    // Use the transformed document here.
+} catch {
+    print("Cannot parse document or apply patch: \(error)")
+}
 ```
 
 ### Apply patch to a sub-element of a json document
@@ -115,9 +146,13 @@ A JSONPatch can be applied relative to a sub-element of a json document. This ca
 ```swift
 let sourceData = ... // a data representation of the before json document
 let patch = ... // a json patch
-let pointer = try! JSONPointer(string: "/subelement")
-
-let patchedData = try! patch.apply(to: sourceData, applyingOptions: [.relative(to: pointer)])
+do {
+    let pointer = try JSONPointer(string: "/subelement")
+    let patchedData = try patch.apply(to: sourceData, applyingOptions: [.relative(to: pointer)])
+    // Use the transformed document here.
+} catch {
+    print("Cannot apply patch: \(error)")
+}
 ```
 
 ## Serializing a JSONPatch
@@ -129,7 +164,12 @@ This section demonstrates a number of ways a JSONPatch instance can be serialize
 A JSONPatch instance can supply a serialized Data representation by calling the data method. Resulting in a UTF-8 data repesentation of the json-patch.
 
 ```swift
-let data = try! patch.data()
+do {
+    let data = try patch.data()
+    // Send or store the serialized patch here.
+} catch {
+    print("Cannot serialize patch: \(error)")
+}
 ```
 
 ### Inserting a JSONPatch as a sub-element of a json document (JSONSerialization)
@@ -140,7 +180,12 @@ If the json-patch is a sub-element of a larger json document, then a JSONSeriali
 var dict: [String: Any] = [:]
 dict["patch"] = patch.jsonArray
 
-let data = try! JSONSerialization.data(withJSONObject: dict, options: [])
+do {
+    let data = try JSONSerialization.data(withJSONObject: dict, options: [])
+    // Send or store the serialized document here.
+} catch {
+    print("Cannot serialize document: \(error)")
+}
 ```
 
 ### Inserting a JSONPatch as a sub-element of a json document (JSONEncoder)
@@ -152,11 +197,14 @@ struct Document: Codable {
     let patch: JSONPatch
 }
 
+let doc = Document(patch: patch)
+
 do {
     let encoder = JSONEncoder()
     let data = try encoder.encode(doc)
+    // Send or store the serialized document here.
 } catch {
-    // handle error
+    print("Cannot serialize document: \(error)")
 }
 ```
 
