@@ -27,7 +27,6 @@ struct JSONPatchGenerator {
         case remove(path: JSONPointer, value: JSONElement)
         case replace(path: JSONPointer, old: JSONElement, value: JSONElement)
         case copy(from: JSONPointer, path: JSONPointer, value: JSONElement)
-        case move(from: JSONPointer, old: JSONElement, path: JSONPointer, value: JSONElement)
     }
 
     private var unchanged: [JSONPointer: JSONElement] = [:]
@@ -199,14 +198,8 @@ struct JSONPatchGenerator {
     }
 
     private mutating func add(path: JSONPointer, value: JSONElement) {
-        if let removalIndex = findPreviouslyRemoved(value: value) {
-            guard case let .remove(removedPath, _) = operations[removalIndex] else {
-                return
-            }
-            operations.remove(at: removalIndex)
-            operations.append(.move(from: removedPath, old: value, path: path, value: value))
-            return
-        }
+        // Keep earlier removals in place: deferring one until a later move changes
+        // the array indices used by intervening operations and subsequent moves.
         if let oldPath = findUnchangedValue(value: value) {
             operations.append(.copy(from: oldPath, path: path, value: value))
         } else {
@@ -221,14 +214,6 @@ struct JSONPatchGenerator {
         return nil
     }
 
-    private func findPreviouslyRemoved(value: JSONElement) -> Int? {
-        return operations.firstIndex { (op) -> Bool in
-            guard case let .remove(_, old) = op else {
-                return false
-            }
-            return value == old
-        }
-    }
 }
 
 extension JSONPatch.Operation {
@@ -242,8 +227,6 @@ extension JSONPatch.Operation {
             self = .copy(from: from, path: path)
         case let .replace(path, _, value):
             self = .replace(path: path, value: value)
-        case let .move(from, _, path, _):
-            self = .move(from: from, path: path)
         }
     }
 }

@@ -53,4 +53,29 @@ struct JSONPatchGeneratorTests {
         #expect(patch.operations.count == 0)
     }
 
+    @Test(arguments: [
+        ("[[1,2,3],[]]", "[[1],[2,3]]"),
+        ("[[1,2,3,4],[]]", "[[1],[4,2,3]]"),
+        ("[[1,2,2,3],[]]", "[[1],[2,3,2]]"),
+        ("[[1,2,3],[],[]]", "[[1],[2],[3]]"),
+        ("[[],[1,2,3]]", "[[2,3],[1]]"),
+        ("[[1,2,3],[4,5,6],[]]", "[[1],[4],[2,6,3,5]]"),
+        ("[[[1],[2],[3]],[]]", "[[[1]],[[2],[3]]]"),
+        ("[[[1,2,3],[]],[]]", "[[[1],[2,3]],[]]"),
+        ("[[1,2,3],[]]", "[[9],[2,3]]"),
+        ("[[1,2,3],[]]", "[[1],[1,2,3]]"),
+        (#"{"source":[1,2,3],"target":[]}"#, #"{"source":[1],"target":[2,3]}"#)
+    ])
+    func testArrayTransferRoundTrip(sourceJSON: String, targetJSON: String) throws {
+        let target = try JSONSerialization.jsonElement(with: Data(targetJSON.utf8), options: [])
+        for options: JSONSerialization.ReadingOptions in [[], [.mutableContainers]] {
+            var source = try JSONSerialization.jsonElement(with: Data(sourceJSON.utf8), options: options)
+            let patch = try JSONPatch(source: source, target: target)
+
+            try source.apply(patch: patch)
+
+            #expect(source == target)
+        }
+    }
+
 }
