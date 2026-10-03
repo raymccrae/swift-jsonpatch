@@ -68,3 +68,9 @@ fastlane/report.xml
 fastlane/Preview.html
 fastlane/screenshots/**/*.png
 fastlane/test_output
+
+# Codex
+#
+# Leave codex rules as a user specific trust matter.
+
+.codex/rules/
