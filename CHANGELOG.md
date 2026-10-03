@@ -3,7 +3,7 @@
 ## 2.0.0 — Unreleased
 
 - Require Swift 6.0 and use Swift 6 language mode across SwiftPM, Xcode, and CocoaPods.
-- Align Apple deployment targets: macOS 10.15, iOS 13, tvOS 13, and watchOS 6.
+- Raise Apple deployment targets to macOS 10.15, iOS 13, tvOS 13, and watchOS 6. Drop support for older versions previously supported by the v1.0.6 CocoaPods package, whose minimums were macOS 10.12, iOS 11, tvOS 10, and watchOS 3.
 - Replace `JSONError.patchTestFailed` Foundation payloads with Sendable `JSONError.Value` snapshots. See the [migration guide](Docs/Swift6Migration.md).
 - Add Sendable conformance to `JSONPatch.ApplyOption`.
 - Use toolchain-provided Swift Testing and packaged test fixtures.

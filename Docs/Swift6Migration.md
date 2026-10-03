@@ -3,6 +3,8 @@
 Version 2.0 requires Swift 6.0+. Use Xcode 16+ for Apple development.
 All installation methods use the same library minimums: macOS 10.15, iOS 13, tvOS 13, and watchOS 6. Linux remains supported through Swift Package Manager.
 
+Version 2.0 drops support for older Apple OS versions previously supported by the v1.0.6 CocoaPods package. Its minimums were macOS 10.12, iOS 11, tvOS 10, and watchOS 3. If your app targets an older OS version, raise its deployment target before upgrading to version 2.0.
+
 ## Read failed-test values
 
 `JSONError.patchTestFailed` now carries immutable `JSONError.Value` snapshots instead of `Any` values. The case retains its `path`, `expected`, and `found` labels.
