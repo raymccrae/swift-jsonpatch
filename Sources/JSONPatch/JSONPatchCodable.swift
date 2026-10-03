@@ -19,6 +19,7 @@
 //
 
 import Foundation
+import CoreFoundation
 
 extension JSONPointer: Codable {
     public init(from decoder: Decoder) throws {
@@ -40,7 +41,9 @@ extension JSONElement: Codable {
             self = .string(value: value as NSString)
         } else if let value = try? container.decode(Bool.self) {
             self = .number(value: value as NSNumber)
-        } else if let value = try? container.decode(Int.self) {
+        } else if let value = try? container.decode(Int64.self) {
+            self = .number(value: value as NSNumber)
+        } else if let value = try? container.decode(UInt64.self) {
             self = .number(value: value as NSNumber)
         } else if let value = try? container.decode(Double.self) {
             self = .number(value: value as NSNumber)
@@ -154,29 +157,24 @@ extension JSONPatch.Operation: Codable {
 extension SingleValueEncodingContainer {
 
     fileprivate mutating func encodeNSNumber(_ value: NSNumber) throws {
-        #if os(Linux)
+        // CFBoolean is distinct from a numeric NSNumber, even when its Objective-C
+        // type is 'c'. Inspect its CF type before choosing an integer representation.
+        if CFGetTypeID(value) == CFBooleanGetTypeID() {
+            try encode(value.boolValue)
+            return
+        }
+        // Use the same type mapping on Darwin and Linux. In particular, q/Q/L/I
+        // are integer types and must never be rounded through floating point.
         switch value.objCType.pointee {
-        case 0x63:
-            try encode(value.boolValue)
-        case 0x64, 0x71, 0x51, 0x4C:
+        case 0x43, 0x53, 0x49, 0x4C, 0x51: // C, S, I, L, Q: unsigned integers
+            try encode(value.uint64Value)
+        case 0x64: // d: double
             try encode(value.doubleValue)
-        case 0x66, 0x49:
+        case 0x66: // f: float
             try encode(value.floatValue)
         default:
             try encode(value.int64Value)
         }
-        #else
-        switch CFNumberGetType(value) {
-        case .charType:
-            try encode(value.boolValue)
-        case .cgFloatType, .doubleType, .float64Type:
-            try encode(value.doubleValue)
-        case .floatType, .float32Type:
-            try encode(value.floatValue)
-        default:
-            try encode(value.int64Value)
-        }
-        #endif
     }
 }
 
