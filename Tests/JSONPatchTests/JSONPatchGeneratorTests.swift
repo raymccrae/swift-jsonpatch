@@ -78,4 +78,79 @@ struct JSONPatchGeneratorTests {
         }
     }
 
+    @Test(arguments: [
+        (#"{"\u00e9":1,"e\u0301":2}"#, #"{"\u00e9":3,"e\u0301":4}"#),
+        (#"{"\u00e9":1}"#, #"{"e\u0301":1}"#),
+        (#"{"e\u0301":1}"#, #"{"\u00e9":1}"#),
+        (#"{"\u00e9":1}"#, #"{"\u00e9":1,"e\u0301":2}"#),
+        (#"{"e\u0301":2}"#, #"{"\u00e9":1,"e\u0301":2}"#),
+        (#"{"\u00e9":1,"e\u0301":2}"#, #"{"\u00e9":1}"#),
+        (#"{"\u00e9":1,"e\u0301":2}"#, #"{"e\u0301":2}"#),
+        (#"{"\u00e9":1,"e\u0301":2}"#, #"{}"#),
+        (#"{}"#, #"{"\u00e9":1,"e\u0301":2}"#)
+    ])
+    func testUnicodeKeyRoundTrip(sourceJSON: String, targetJSON: String) throws {
+        // Exercise equality short circuits at the root and inside objects/arrays.
+        for (prefix, suffix) in [("", ""), (#"{"nested":"#, "}"), (#"{"nested":["#, "]}")] {
+            try assertExactRoundTrip(sourceJSON: prefix + sourceJSON + suffix,
+                                     targetJSON: prefix + targetJSON + suffix)
+        }
+    }
+
+    @Test func testUnchangedUnicodeKeys() throws {
+        let data = Data(#"{"\u00e9":1,"e\u0301":2,"nested":[{"e\u0301":3}]}"#.utf8)
+        let source = try JSONSerialization.jsonElement(with: data, options: [])
+        let target = try JSONSerialization.jsonElement(with: data, options: [.mutableContainers])
+        let patch = try JSONPatch(source: source, target: target)
+        #expect(patch.operations.isEmpty)
+        try expectExactJSON(source.rawValue, target.rawValue)
+    }
+
+    @Test func testUnicodeKeysInCopyCandidates() throws {
+        try assertExactRoundTrip(sourceJSON: #"{"stable":{"\u00e9":1}}"#,
+                                 targetJSON: #"{"stable":{"\u00e9":1},"added":{"e\u0301":1}}"#)
+        try assertExactRoundTrip(sourceJSON: #"[{"\u00e9":1}]"#,
+                                 targetJSON: #"[{"\u00e9":1},{"e\u0301":1}]"#)
+        try assertExactRoundTrip(sourceJSON: #"{"stable":[{"\u00e9":1}]}"#,
+                                 targetJSON: #"{"stable":[{"\u00e9":1}],"added":[{"e\u0301":1}]}"#)
+    }
+
+    private func assertExactRoundTrip(sourceJSON: String, targetJSON: String) throws {
+        for sourceOptions: JSONSerialization.ReadingOptions in [[], [.mutableContainers]] {
+            for targetOptions: JSONSerialization.ReadingOptions in [[], [.mutableContainers]] {
+                var source = try JSONSerialization.jsonElement(with: Data(sourceJSON.utf8), options: sourceOptions)
+                let target = try JSONSerialization.jsonElement(with: Data(targetJSON.utf8), options: targetOptions)
+                let patch = try JSONPatch(source: source, target: target)
+                try source.apply(patch: patch)
+                try expectExactJSON(source.rawValue, target.rawValue)
+            }
+        }
+    }
+
+    private func expectExactJSON(_ actual: Any, _ expected: Any) throws {
+        if let expectedObject = expected as? NSDictionary {
+            let actualObject = try #require(actual as? NSDictionary)
+            #expect(actualObject.count == expectedObject.count)
+            let actualKeys = try #require(actualObject.allKeys as? [String])
+            let expectedKeys = try #require(expectedObject.allKeys as? [String])
+            // Match scalar sequences independently of Swift String/dictionary equality.
+            for expectedKey in expectedKeys {
+                let actualKey = try #require(actualKeys.first {
+                    $0.unicodeScalars.elementsEqual(expectedKey.unicodeScalars)
+                })
+                let actualValue = try #require(actualObject.object(forKey: actualKey as NSString))
+                let expectedValue = try #require(expectedObject.object(forKey: expectedKey as NSString))
+                try expectExactJSON(actualValue, expectedValue)
+            }
+        } else if let expectedArray = expected as? NSArray {
+            let actualArray = try #require(actual as? NSArray)
+            #expect(actualArray.count == expectedArray.count)
+            for index in 0..<min(actualArray.count, expectedArray.count) {
+                try expectExactJSON(actualArray[index], expectedArray[index])
+            }
+        } else {
+            #expect(try JSONElement(any: actual) == JSONElement(any: expected))
+        }
+    }
+
 }

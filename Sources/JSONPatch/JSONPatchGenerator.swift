@@ -22,6 +22,61 @@ import Foundation
 
 struct JSONPatchGenerator {
 
+    // Swift String equality normalizes Unicode; JSON property names do not.
+    private struct ObjectKey: Hashable {
+        let name: String
+
+        static func == (lhs: Self, rhs: Self) -> Bool {
+            JSONPointer.tokensEqual(lhs.name, rhs.name)
+        }
+
+        func hash(into hasher: inout Hasher) {
+            for scalar in name.unicodeScalars {
+                hasher.combine(scalar.value)
+            }
+        }
+    }
+
+    private static func objectKeys(_ dictionary: NSDictionary) -> Set<ObjectKey>? {
+        guard let keys = dictionary.allKeys as? [String] else { return nil }
+        return Set(keys.map { ObjectKey(name: $0) })
+    }
+
+    // Use the same exact property identity for early returns and copy candidates
+    // as for object diffs, including objects nested inside arrays.
+    private static func valuesEqual(_ lhs: JSONElement, _ rhs: JSONElement) -> Bool {
+        switch (lhs, rhs) {
+        case (.object(let a), .object(let b)),
+             (.object(let a), .mutableObject(let b as NSDictionary)),
+             (.mutableObject(let a as NSDictionary), .object(let b)),
+             (.mutableObject(let a as NSDictionary), .mutableObject(let b as NSDictionary)):
+            guard let keysA = objectKeys(a), let keysB = objectKeys(b), keysA == keysB else {
+                return false
+            }
+            for key in keysA {
+                guard let valueA = a.object(forKey: key.name as NSString),
+                      let valueB = b.object(forKey: key.name as NSString),
+                      let elementA = try? JSONElement(any: valueA),
+                      let elementB = try? JSONElement(any: valueB),
+                      valuesEqual(elementA, elementB) else { return false }
+            }
+            return true
+        case (.array(let a), .array(let b)),
+             (.array(let a), .mutableArray(let b as NSArray)),
+             (.mutableArray(let a as NSArray), .array(let b)),
+             (.mutableArray(let a as NSArray), .mutableArray(let b as NSArray)):
+            guard a.count == b.count else { return false }
+            for index in 0..<a.count {
+                guard let elementA = try? JSONElement(any: a[index]),
+                      let elementB = try? JSONElement(any: b[index]),
+                      valuesEqual(elementA, elementB) else { return false }
+            }
+            return true
+        default:
+            return lhs == rhs
+        }
+    }
+
     fileprivate enum Operation {
         case add(path: JSONPointer, value: JSONElement)
         case remove(path: JSONPointer, value: JSONElement)
@@ -43,7 +98,7 @@ struct JSONPatchGenerator {
     }
 
     private mutating func computeUnchanged(pointer: JSONPointer, a: JSONElement, b: JSONElement) throws {
-        guard a != b else {
+        guard !Self.valuesEqual(a, b) else {
             unchanged[pointer] = a
             return
         }
@@ -69,15 +124,16 @@ struct JSONPatchGenerator {
     private mutating func computeObjectUnchanged(pointer: JSONPointer,
                                                  a: NSDictionary,
                                                  b: NSDictionary) throws {
-        guard let keys = a.allKeys as? [String] else {
+        guard let keys = Self.objectKeys(a), let otherKeys = Self.objectKeys(b) else {
             return
         }
 
-        for key in keys {
-            guard let valueA = a[key], let valueB = b[key] else {
+        for key in keys.intersection(otherKeys) {
+            guard let valueA = a.object(forKey: key.name as NSString),
+                  let valueB = b.object(forKey: key.name as NSString) else {
                 continue
             }
-            try computeUnchanged(pointer: pointer.appended(withComponent: key),
+            try computeUnchanged(pointer: pointer.appended(withComponent: key.name),
                                  a: try JSONElement(any: valueA),
                                  b: try JSONElement(any: valueB))
         }
@@ -97,7 +153,7 @@ struct JSONPatchGenerator {
     private mutating func generateDiffs(pointer: JSONPointer,
                                         source: JSONElement,
                                         target: JSONElement) throws {
-        guard source != target else {
+        guard !Self.valuesEqual(source, target) else {
             return
         }
 
@@ -133,30 +189,29 @@ struct JSONPatchGenerator {
                                               source: NSDictionary,
                                               target: NSDictionary) throws {
         guard
-            let sourceKeys = source.allKeys as? [String],
-            let targetKeys = target.allKeys as? [String] else {
+            let sourceKeySet = Self.objectKeys(source),
+            let targetKeySet = Self.objectKeys(target) else {
                 return
         }
-        let sourceKeySet = Set(sourceKeys)
-        let targetKeySet = Set(targetKeys)
 
         for key in sourceKeySet.subtracting(targetKeySet) {
-            guard let value = source[key] else { continue }
-            remove(path: pointer.appended(withComponent: key),
+            guard let value = source.object(forKey: key.name as NSString) else { continue }
+            remove(path: pointer.appended(withComponent: key.name),
                    value: try JSONElement(any: value))
         }
 
         for key in targetKeySet.subtracting(sourceKeySet) {
-            guard let value = target[key] else { continue }
-            add(path: pointer.appended(withComponent: key),
+            guard let value = target.object(forKey: key.name as NSString) else { continue }
+            add(path: pointer.appended(withComponent: key.name),
                 value: try JSONElement(any: value))
         }
 
         for key in sourceKeySet.intersection(targetKeySet) {
-            guard let sourceValue = source[key], let targetValue = target[key] else {
+            guard let sourceValue = source.object(forKey: key.name as NSString),
+                  let targetValue = target.object(forKey: key.name as NSString) else {
                 continue
             }
-            try generateDiffs(pointer: pointer.appended(withComponent: key),
+            try generateDiffs(pointer: pointer.appended(withComponent: key.name),
                               source: try JSONElement(any: sourceValue),
                               target: try JSONElement(any: targetValue))
         }
@@ -208,7 +263,7 @@ struct JSONPatchGenerator {
     }
 
     private func findUnchangedValue(value: JSONElement) -> JSONPointer? {
-        for (pointer, old) in unchanged where value == old {
+        for (pointer, old) in unchanged where Self.valuesEqual(value, old) {
             return pointer
         }
         return nil

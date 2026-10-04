@@ -21,6 +21,7 @@
 - Compare JSON Pointer tokens by Unicode scalars without normalization for recursive-move checks, pointer equality, and hashing. Canonically equivalent spellings remain distinct.
 - Restrict the array `-` token to insertion destinations. Reject it when an existing array value is required, while preserving object properties named `-`.
 - Reject URI-fragment forms in patch operation `path` and `from` fields through both Foundation and Codable decoding. Standalone `JSONPointer` parsing continues to support URI fragments.
+- Preserve distinct Unicode property spellings in generated patches, including nested objects and copy candidates.
 
 ## 1.0.6
 
