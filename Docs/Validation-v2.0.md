@@ -77,3 +77,20 @@ Run these checks in suitably provisioned environments before release. A successf
 | Published release installation | Pending until publication. Validate the podspec source tag and documented SwiftPM and Carthage dependency declarations against the actual `v2.0.0` tag, and update unreleased notices. |
 
 No SDKs, simulator runtimes, package managers, or toolchains were installed for these checks. The release owner handles tags and publication.
+
+## October 4, 2026 follow-up
+
+The additional Unicode generation and patch-value fixes pass the local checks below at code revision `d8249c275cceccbdadbb937f2060de621d66749e`. These results supersede the October 3 test counts for this revision. The October 3 evidence above remains historical.
+
+| Check | Result | Local evidence |
+| --- | --- | --- |
+| SwiftPM Debug, warnings as errors | Passed: 79 tests in 10 suites | `/tmp/jsonpatch-finding9-debug.log` |
+| SwiftPM Release, warnings as errors | Passed: 79 tests in 10 suites | `/tmp/jsonpatch-finding9-release.log` |
+| Standalone Xcode macOS tests | Passed: 79 tests in 10 suites | `macos-tests.log` in the follow-up Apple test log directory below |
+| Standalone Xcode iOS simulator tests | Passed: 79 tests in 10 suites | `ios-tests.log` in the follow-up Apple test log directory below |
+
+The follow-up Apple test log directory is `/private/var/folders/c6/yhpfyvmn345_5j0w1dl_mmsw0000gn/T/jsonpatch-apple.xjPsPQ`. It also contains the test result bundles under `DerivedData/Logs/Test`. The standalone tests used `bash Scripts/check-apple.sh tests` with code signing disabled and Swift warnings treated as errors. These evidence paths are temporary local files and are not committed artifacts.
+
+Independent temporary runtime probes also passed. Unicode generation checks covered both review examples, mixed composed and decomposed keys containing `/` and `~`, and a nested Unicode object copy candidate in an array. The probes checked both mutable and immutable generation options against a recursive Foundation comparison that preserved the exact UTF-8 bytes of object keys. Patch-value checks applied the review's Codable patch three times to fresh empty objects and confirmed the same result and unchanged serialized patch each time. A derived patch with a later failing remove operation also preserved its serialized constants across two failed applications.
+
+No fresh CI results were obtained. Swift 6.0, Linux, CocoaPods, tvOS, watchOS, the full Carthage distribution, and installation from the published release tag remain open release checks. The framework and restricted Carthage results above apply only to the October 3 revision; they were not rerun for this follow-up. No SDKs, simulator runtimes, package managers, or toolchains were installed. The release owner handles tags and publication.
