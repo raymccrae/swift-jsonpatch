@@ -81,13 +81,51 @@ struct ArrayTests {
         #expect(copyDict["a"] as? String == "1")
     }
 
-    @Test func testStringDeepCopy() {
-        let array = NSMutableArray(array: [NSMutableString(string: "1")])
+    @Test func testStringDeepCopy() throws {
+        let originalString = NSMutableString(string: "1")
+        let array = NSMutableArray(object: originalString)
         let copy = array.deepMutableCopy()
-        (array[0] as! NSMutableString).setString("2")
+        let copiedString = try #require(copy.object(at: 0) as? NSMutableString)
+        originalString.setString("2")
 
         #expect(copy.count == 1)
-        #expect(copy[0] as? String == "1")
+        #expect(copiedString as String == "1")
+        #expect(copiedString !== originalString)
+        copiedString.setString("3")
+        #expect(originalString as String == "2")
+    }
+
+    @Test(arguments: [false, true])
+    func testDictionaryStringDeepCopy(nested: Bool) throws {
+        let originalString = NSMutableString(string: "before")
+        let leaf = NSMutableDictionary()
+        leaf["s"] = originalString
+        let dictionary = nested ? NSMutableDictionary(dictionary: ["nested": leaf]) : leaf
+        let copy = dictionary.deepMutableCopy()
+        let copiedLeaf = nested ? try #require(copy.object(forKey: "nested") as? NSDictionary) : copy
+        let copiedString = try #require(copiedLeaf.object(forKey: "s") as? NSMutableString)
+
+        #expect(copiedString !== originalString)
+        originalString.setString("original changed")
+        #expect(copiedString as String == "before")
+        copiedString.setString("copy changed")
+        #expect(originalString as String == "original changed")
+    }
+
+    @Test func testDictionaryStringInsideArrayDeepCopy() throws {
+        let originalString = NSMutableString(string: "before")
+        let dictionary = NSMutableDictionary()
+        dictionary["s"] = originalString
+        let array = NSMutableArray(object: dictionary)
+        let copy = array.deepMutableCopy()
+        let copiedDictionary = try #require(copy.object(at: 0) as? NSDictionary)
+        let copiedString = try #require(copiedDictionary.object(forKey: "s") as? NSMutableString)
+
+        #expect(copiedString !== originalString)
+        copiedString.setString("copy changed")
+        #expect(originalString as String == "before")
+        originalString.setString("original changed")
+        #expect(copiedString as String == "copy changed")
     }
 
 }

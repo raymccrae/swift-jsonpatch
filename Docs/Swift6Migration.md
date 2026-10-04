@@ -44,7 +44,7 @@ Each call to `jsonObject()` creates a fresh Foundation representation. Keep that
 
 `JSONPointer`, `JSONPatch.ApplyOption`, `JSONError`, and its `Value` snapshots are Sendable.
 `JSONPatch`, `JSONPatch.Operation`, and `JSONElement` retain Foundation references and can include mutable containers. Keep those instances within one actor or task, and serialize values to `Data` before transferring them.
-The `operations` array is fixed after construction. Application deep-copies `add` and `replace` values, so later operations and container mutations in the result do not rewrite those stored values. If you retain mutable Foundation values supplied when constructing a patch, you can still change the patch by mutating those references.
+The `operations` array is fixed after construction. Application deep-copies `add` and `replace` values, so later operations and changes to containers or mutable strings in the result do not rewrite those stored values. If you retain mutable Foundation values supplied when constructing a patch, you can still change the patch by mutating those references.
 
 Create and apply a patch inside the actor that owns the work:
 

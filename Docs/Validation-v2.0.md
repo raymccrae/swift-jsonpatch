@@ -94,3 +94,16 @@ The follow-up Apple test log directory is `/private/var/folders/c6/yhpfyvmn345_5
 Independent temporary runtime probes also passed. Unicode generation checks covered both review examples, mixed composed and decomposed keys containing `/` and `~`, and a nested Unicode object copy candidate in an array. The probes checked both mutable and immutable generation options against a recursive Foundation comparison that preserved the exact UTF-8 bytes of object keys. Patch-value checks applied the review's Codable patch three times to fresh empty objects and confirmed the same result and unchanged serialized patch each time. A derived patch with a later failing remove operation also preserved its serialized constants across two failed applications.
 
 No fresh CI results were obtained. Swift 6.0, Linux, CocoaPods, tvOS, watchOS, the full Carthage distribution, and installation from the published release tag remain open release checks. The framework and restricted Carthage results above apply only to the October 3 revision; they were not rerun for this follow-up. No SDKs, simulator runtimes, package managers, or toolchains were installed. The release owner handles tags and publication.
+
+## October 4, 2026 mutable-string follow-up
+
+The residual mutable-string fix copies `NSMutableString` leaves in both platform branches of the dictionary deep-copy helper. It uses `mutableCopy()`, matching the array helper and preserving mutable result strings. Mutating a returned string therefore leaves the stored add/replace constant unchanged. These results apply to the checkout containing this fix, after the `3916171` reassessment.
+
+| Check | Result | Local evidence |
+| --- | --- | --- |
+| SwiftPM Debug, warnings as errors | Passed: 82 tests in 10 suites | `/tmp/jsonpatch-strings-debug.log` |
+| SwiftPM Release, warnings as errors | Passed: 82 tests in 10 suites | `/tmp/jsonpatch-strings-release.log` |
+
+Regression tests cover dictionary strings, nested dictionaries, dictionaries inside arrays, and direct array strings. Patch tests cover add/replace at object, array, and root destinations, repeated applications, both copy options, and unchanged Foundation and Codable serialization after mutating returned strings. An independent probe reproduced the review's dictionary-string example and confirmed the patch stayed unchanged across two applications. It also confirmed that direct array strings remain independent when either the original or the copy is mutated. The probe source is `/tmp/jsonpatch-strings-probe/main.swift`; these evidence paths are temporary local files.
+
+Linux runtime behavior remains unverified, although both dictionary code branches contain the repair. No standalone Xcode, SDK framework, or distribution checks were rerun for this fix. The earlier 79-test standalone Xcode results remain historical and do not validate the mutable-string repair. The pending release checks above remain open.

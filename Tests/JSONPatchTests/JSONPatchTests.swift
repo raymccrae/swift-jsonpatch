@@ -86,6 +86,68 @@ struct OperationValueFixture: Sendable {
 
 struct JSONPatchTests {
 
+    @Test(arguments: ["add", "replace"], ["object", "array", "root"])
+    func testReturnedDictionaryStringsPreserveOperationValues(operation: String, destination: String) throws {
+        for nesting in ["dictionary", "nestedDictionary", "array"] {
+            let suppliedString = NSMutableString(string: "before")
+            let leaf = NSMutableDictionary()
+            leaf["s"] = suppliedString
+            let value: JSONElement
+            let stringSuffix: String
+            switch nesting {
+            case "nestedDictionary":
+                value = .mutableObject(value: NSMutableDictionary(dictionary: ["nested": leaf]))
+                stringSuffix = "/nested/s"
+            case "array":
+                value = .mutableArray(value: NSMutableArray(object: leaf))
+                stringSuffix = "/0/s"
+            default:
+                value = .mutableObject(value: leaf)
+                stringSuffix = "/s"
+            }
+
+            let path: String
+            let sourceData: Data
+            switch destination {
+            case "object":
+                path = "/a"
+                sourceData = Data((operation == "add" ? "{}" : #"{"a":0}"#).utf8)
+            case "array":
+                path = "/0"
+                sourceData = Data((operation == "add" ? "[]" : "[0]").utf8)
+            default:
+                path = ""
+                sourceData = Data("{}".utf8)
+            }
+            let pointer = try JSONPointer(string: path)
+            let patchOperation: JSONPatch.Operation = operation == "add"
+                ? .add(path: pointer, value: value)
+                : .replace(path: pointer, value: value)
+            let directPatch = JSONPatch(operations: [patchOperation])
+            // Foundation construction must isolate the same mutable leaves too.
+            for patch in [directPatch, try JSONPatch(jsonArray: directPatch.jsonArray)] {
+                let serialized = try patch.data(options: [.sortedKeys])
+                let encoder = JSONEncoder()
+                encoder.outputFormatting = [.sortedKeys]
+                let encoded = try encoder.encode(patch)
+                for options: [JSONPatch.ApplyOption] in [[], [.applyOnCopy]] {
+                    for _ in 0..<2 {
+                        let source = try JSONSerialization.jsonObject(with: sourceData, options: [.mutableContainers])
+                        let result = try JSONElement(any: patch.apply(to: source, options: options))
+                        let returned = try result.evaluate(pointer: JSONPointer(string: path + stringSuffix))
+                        let returnedString = try #require(returned.rawValue as? NSMutableString)
+                        #expect(returnedString as String == "before")
+                        #expect(returnedString !== suppliedString)
+                        returnedString.setString("after")
+                        #expect(suppliedString as String == "before")
+                        #expect(try patch.data(options: [.sortedKeys]) == serialized)
+                        #expect(try encoder.encode(patch) == encoded)
+                    }
+                }
+            }
+        }
+    }
+
     @Test(arguments: OperationValueFixture.cases)
     func testApplicationPreservesOperationValues(_ fixture: OperationValueFixture) throws {
         let expected = try JSONSerialization.jsonElement(with: fixture.expected, options: [])

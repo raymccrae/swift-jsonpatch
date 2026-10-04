@@ -33,7 +33,7 @@ extension NSDictionary {
             case let dict as NSDictionary:
                 result.setObject(dict.deepMutableCopy(), forKey: (key as? NSString) ?? String(describing: key) as NSString)
             case let str as NSMutableString:
-                result.setObject(str, forKey: (key as? NSString) ?? String(describing: key) as NSString)
+                result.setObject(str.mutableCopy(), forKey: (key as? NSString) ?? String(describing: key) as NSString)
             case let obj as NSObject:
                 result.setObject(obj.copy(), forKey: (key as? NSString) ?? String(describing: key) as NSString)
             default:
@@ -46,7 +46,7 @@ extension NSDictionary {
             case let dict as NSDictionary:
                 result[key] = dict.deepMutableCopy()
             case let str as NSMutableString:
-                result[key] = str
+                result[key] = str.mutableCopy()
             case let obj as NSObject:
                 result[key] = obj.copy()
             default:
