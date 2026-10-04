@@ -22,7 +22,140 @@ import Foundation
 import Testing
 @testable import JSONPatch
 
+struct OperationValueFixture: Sendable {
+    let operation: String
+    let destination: String
+    let path: String
+    let mutationPath: String
+    let value: String
+    let source: Data
+    let expected: Data
+    let patchData: Data
+    let arrayValue: Bool
+
+    init(operation: String, destination: String, arrayValue: Bool) {
+        self.operation = operation
+        self.destination = destination
+        self.arrayValue = arrayValue
+        value = arrayValue ? #"[{"items":[]}]"# : #"{"items":[]}"#
+        let changedValue = arrayValue ? #"[{"items":[1]}]"# : #"{"items":[1]}"#
+        switch destination {
+        case "object":
+            path = "/a"
+            source = Data((operation == "add" ? "{}" : #"{"a":0}"#).utf8)
+            expected = Data("{\"a\":\(changedValue)}".utf8)
+        case "array":
+            path = "/0"
+            source = Data((operation == "add" ? "[]" : "[0]").utf8)
+            expected = Data("[\(changedValue)]".utf8)
+        default:
+            path = ""
+            source = Data("{}".utf8)
+            expected = Data(changedValue.utf8)
+        }
+        mutationPath = path + (arrayValue ? "/0/items/-" : "/items/-")
+        patchData = Data("[{\"op\":\"\(operation)\",\"path\":\"\(path)\",\"value\":\(value)},{\"op\":\"add\",\"path\":\"\(mutationPath)\",\"value\":1}]".utf8)
+    }
+
+    static var cases: [OperationValueFixture] {
+        ["add", "replace"].flatMap { operation in
+            ["object", "array", "root"].flatMap { destination in
+                [false, true].map { OperationValueFixture(operation: operation, destination: destination, arrayValue: $0) }
+            }
+        }
+    }
+
+    func patches() throws -> [JSONPatch] {
+        let mutableJSON = try JSONSerialization.jsonObject(with: patchData, options: [.mutableContainers]) as! NSArray
+        // Supply mutable containers directly, including an array nested inside an object.
+        let items = NSMutableArray()
+        let object = NSMutableDictionary()
+        object["items"] = items
+        let suppliedValue: JSONElement = arrayValue ? .mutableArray(value: NSMutableArray(object: object)) : .mutableObject(value: object)
+        let firstOperation: JSONPatch.Operation = operation == "add"
+            ? .add(path: try JSONPointer(string: path), value: suppliedValue)
+            : .replace(path: try JSONPointer(string: path), value: suppliedValue)
+        return [
+            try JSONDecoder().decode(JSONPatch.self, from: patchData),
+            try JSONPatch(data: patchData),
+            try JSONPatch(jsonArray: mutableJSON),
+            JSONPatch(operations: [firstOperation, .add(path: try JSONPointer(string: mutationPath), value: JSONElement(1))])
+        ]
+    }
+}
+
 struct JSONPatchTests {
+
+    @Test(arguments: OperationValueFixture.cases)
+    func testApplicationPreservesOperationValues(_ fixture: OperationValueFixture) throws {
+        let expected = try JSONSerialization.jsonElement(with: fixture.expected, options: [])
+        let expectedData = try JSONSerialization.data(withJSONObject: expected.rawValue, options: [.sortedKeys])
+
+        for patch in try fixture.patches() {
+            let serialized = try patch.data(options: [.sortedKeys])
+            let encoder = JSONEncoder()
+            encoder.outputFormatting = [.sortedKeys]
+            let encoded = try encoder.encode(patch)
+            for options: [JSONPatch.ApplyOption] in [[], [.applyOnCopy]] {
+                for _ in 0..<2 {
+                    let resultData = try patch.apply(to: fixture.source, writingOptions: [.sortedKeys], applyingOptions: options)
+                    #expect(resultData == expectedData)
+
+                    let source = try JSONSerialization.jsonObject(with: fixture.source, options: [.mutableContainers])
+                    var result = try JSONElement(any: patch.apply(to: source, options: options))
+                    #expect(result == expected)
+                    if options.contains(.applyOnCopy) {
+                        #expect(try JSONElement(any: source) == JSONSerialization.jsonElement(with: fixture.source, options: []))
+                    }
+                    try result.add(value: JSONElement(2), to: JSONPointer(string: fixture.mutationPath))
+
+                    // The public single-operation entry point must isolate values too.
+                    var element = try JSONSerialization.jsonElement(with: fixture.source, options: [.mutableContainers])
+                    for operation in patch.operations {
+                        try element.apply(operation)
+                    }
+                    #expect(element == expected)
+                    #expect(try patch.data(options: [.sortedKeys]) == serialized)
+                    #expect(try encoder.encode(patch) == encoded)
+                }
+            }
+        }
+    }
+
+    @Test(arguments: OperationValueFixture.cases)
+    func testFailedApplicationPreservesOperationValues(_ fixture: OperationValueFixture) throws {
+        let expected = try JSONSerialization.jsonElement(with: fixture.expected, options: [])
+        let original = try JSONSerialization.jsonElement(with: fixture.source, options: [])
+        for successfulPatch in try fixture.patches() {
+            // Fail after inserting a constant and mutating a container nested inside it.
+            let patch = JSONPatch(operations: successfulPatch.operations + [.remove(path: try JSONPointer(string: "/missing"))])
+            let serialized = try patch.data(options: [.sortedKeys])
+            let encoder = JSONEncoder()
+            encoder.outputFormatting = [.sortedKeys]
+            let encoded = try encoder.encode(patch)
+            for options: [JSONPatch.ApplyOption] in [[], [.applyOnCopy]] {
+                for _ in 0..<2 {
+                    #expect(throws: JSONError.referencesNonexistentValue) {
+                        _ = try patch.apply(to: fixture.source, applyingOptions: options)
+                    }
+                    let source = try JSONSerialization.jsonObject(with: fixture.source, options: [.mutableContainers])
+                    #expect(throws: JSONError.referencesNonexistentValue) {
+                        _ = try patch.apply(to: source, options: options)
+                    }
+                    let expectedSource = options.contains(.applyOnCopy) || fixture.destination == "root" ? original : expected
+                    #expect(try JSONElement(any: source) == expectedSource)
+
+                    var element = try JSONSerialization.jsonElement(with: fixture.source, options: [.mutableContainers])
+                    #expect(throws: JSONError.referencesNonexistentValue) {
+                        try element.apply(patch: patch)
+                    }
+                    #expect(element == expected)
+                    #expect(try patch.data(options: [.sortedKeys]) == serialized)
+                    #expect(try encoder.encode(patch) == encoded)
+                }
+            }
+        }
+    }
 
     @Test func testInvalidScalarParentStopsPatch() throws {
         let json = Data(#"{"a":1}"#.utf8)

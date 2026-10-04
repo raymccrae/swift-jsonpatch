@@ -428,7 +428,9 @@ extension JSONElement {
         }
     }
 
-    /// Applys a json-patch operation to the reciever.
+    /// Applies a JSON Patch operation to the receiver.
+    /// Add and replace values are deep-copied so document changes do not mutate
+    /// the operation's stored value, including when replacing the root.
     ///
     /// - Parameters:
     ///   - operation: The operation to apply.
@@ -436,11 +438,11 @@ extension JSONElement {
         do {
             switch operation {
             case let .add(path, value):
-                try add(value: value, to: path)
+                try add(value: value.copy(), to: path)
             case let .remove(path):
                 try remove(at: path)
             case let .replace(path, value):
-                try replace(value: value, to: path)
+                try replace(value: value.copy(), to: path)
             case let .move(from, path):
                 try move(from: from, to: path)
             case let .copy(from, path):

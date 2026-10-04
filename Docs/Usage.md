@@ -143,6 +143,8 @@ do {
 
 Patch operations run in order. If an operation throws, earlier changes are not rolled back. When you apply a patch directly to mutable Foundation containers, the original document can be left partially changed. Even a single `move` operation can remove its source before inserting it at the destination fails.
 
+Applying a patch deep-copies its `add` and `replace` values before inserting them into the document, including nested containers and root replacements. Later operations and container changes to the returned document therefore do not rewrite those stored patch values, even if application fails. You can apply the same patch to fresh identical documents and obtain the same result. If you retain a mutable Foundation value supplied when constructing a patch, changing that value can still change the patch; see the [concurrency guide](Swift6Migration.md#use-jsonpatch-with-actors).
+
 To preserve the original document, use `JSONPatch.apply(to:options:)` with `.applyOnCopy`. This method copies the document before applying the operations. In this example, the second operation fails because `/missing` does not exist, but the original `name` remains `"before"`:
 
 ```swift
