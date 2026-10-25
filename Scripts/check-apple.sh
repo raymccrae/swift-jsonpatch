@@ -26,15 +26,10 @@ import pathlib, re, sys
 text = pathlib.Path(sys.argv[1]).read_text()
 assert re.search(r'Test run with [1-9][0-9]* tests.*passed', text), text[-4000:]
 CHECK
-        simulator_id="$(xcrun simctl list devices available --json | python3 -c '
-import json, sys
-for devices in json.load(sys.stdin)["devices"].values():
-    for device in devices:
-        if device["name"].startswith("iPhone"):
-            print(device["udid"])
-            sys.exit(0)
-sys.exit("No available iPhone simulator")
-')"
+        simulator_sdk="$(xcrun --sdk iphonesimulator --show-sdk-version)"
+        simulator_id="$(xcrun simctl list --json | \
+            python3 Scripts/select-ios-simulator.py "$simulator_sdk")"
+        echo "Testing with iOS Simulator SDK $simulator_sdk on simulator $simulator_id"
         run_build ios-tests -scheme JSONPatch -destination "platform=iOS Simulator,id=$simulator_id" test
         python3 - "$check_root/ios-tests.log" <<'CHECK'
 import pathlib, re, sys

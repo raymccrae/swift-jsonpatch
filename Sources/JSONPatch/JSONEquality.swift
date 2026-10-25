@@ -19,6 +19,7 @@
 //
 
 import Foundation
+import CoreFoundation
 
 protocol JSONEquatable {
     func isJSONEquals(to element: JSONElement) -> Bool
@@ -26,11 +27,7 @@ protocol JSONEquatable {
 
 extension NSNumber: JSONEquatable {
     var isBoolean: Bool {
-        #if os(Linux)
-        return objCType.pointee == 0x63 // character code for 'c'
-        #else
-        return CFNumberGetType(self) == .charType
-        #endif
+        return CFGetTypeID(self) == CFBooleanGetTypeID()
     }
 
     func isJSONEquals(to element: JSONElement) -> Bool {
@@ -55,7 +52,7 @@ extension NSString: JSONEquatable {
             return false
         }
 
-        return isEqual(str)
+        return JSONPointer.tokensEqual(self as String, str as String)
     }
 }
 
@@ -81,10 +78,10 @@ extension NSArray: JSONEquatable {
         case let .array(arr) where arr.count == count,
              let .mutableArray(arr as NSArray) where arr.count == count:
             for index in 0..<count {
-                guard let selfItem = self[index] as? JSONEquatable else { return false }
-                guard let arrItem = try? JSONElement(any: arr[index]) else { return false }
+                guard let selfItem = try? JSONElement(any: jsonObject(at: index)) else { return false }
+                guard let arrItem = try? JSONElement(any: arr.jsonObject(at: index)) else { return false }
 
-                if !selfItem.isJSONEquals(to: arrItem) {
+                if selfItem != arrItem {
                     return false
                 }
             }
@@ -109,12 +106,13 @@ extension NSDictionary: JSONEquatable {
             let keys = self.allKeys
             for key in keys {
                 guard
-                    let dictValue = dict[key],
+                    let dictValue = dict.jsonObject(forKey: key),
                     let dictElement = try? JSONElement(any: dictValue) else {
                     return false
                 }
-                guard let selfValue = self[key] as? JSONEquatable else { return false }
-                if !selfValue.isJSONEquals(to: dictElement) {
+                guard let value = jsonObject(forKey: key),
+                      let selfValue = try? JSONElement(any: value) else { return false }
+                if selfValue != dictElement {
                     return false
                 }
             }

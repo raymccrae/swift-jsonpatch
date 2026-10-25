@@ -59,7 +59,9 @@ struct JSONFileTests {
                 let result = try jsonPatch.apply(to: doc)
 
                 if let expected = testJson["expected"] {
-                    guard (result as? NSObject)?.isEqual(expected) ?? false else {
+                    // NSObject equality on corelibs does not compare bridged Bool
+                    // values consistently. Use JSON structural equality instead.
+                    guard try JSONElement(any: result) == JSONElement(any: expected) else {
                         Issue.record("result does not match expected in test: \(comment)")
                         continue
                     }

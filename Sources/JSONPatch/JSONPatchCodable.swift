@@ -57,7 +57,7 @@ extension JSONElement: Codable {
             let dict = NSMutableDictionary()
             for key in keys {
                 let value = try keyedContainer.decode(JSONElement.self, forKey: key)
-                dict[key.stringValue] = value.rawValue
+                dict.setObject(value.rawValue, forKey: jsonObjectKey(key.stringValue))
             }
             self = .mutableObject(value: dict)
         } else {
@@ -75,7 +75,7 @@ extension JSONElement: Codable {
         case .null:
             try container.encodeNil()
         case .array(let array), .mutableArray(let array as NSArray):
-            let elements = try array.map { try JSONElement(any: $0) }
+            let elements = try (0..<array.count).map { try JSONElement(any: array.jsonObject(at: $0)) }
             try container.encode(elements)
         case .object(let dict), .mutableObject(let dict as NSDictionary):
             var keyContainer = encoder.container(keyedBy: NSDictionaryCodingKey.self)
@@ -163,6 +163,13 @@ extension SingleValueEncodingContainer {
             try encode(value.boolValue)
             return
         }
+        // Corelibs JSONSerialization uses NSDecimalNumber for some large
+        // negative integers. Its objCType is double, but converting to Double
+        // would round values such as Int64.min + 1.
+        if let decimal = value as? NSDecimalNumber {
+            try encode(decimal.decimalValue)
+            return
+        }
         // Use the same type mapping on Darwin and Linux. In particular, q/Q/L/I
         // are integer types and must never be rounded through floating point.
         switch value.objCType.pointee {
@@ -181,25 +188,13 @@ extension SingleValueEncodingContainer {
 extension KeyedEncodingContainer where Key == NSDictionaryCodingKey {
 
     fileprivate mutating func encodeNSDictionary(_ value: NSDictionary) throws {
-        var encodingError: Error? = nil
-        value.enumerateKeysAndObjects { (key, value, stop) in
-            do {
-                guard
-                    let keyString = key as? String,
-                    let codingKey = NSDictionaryCodingKey(stringValue: keyString)
-                    else {
-                        assertionFailure()
-                        return
-                }
-                let element = try JSONElement(any: value)
-                try encode(element, forKey: codingKey)
-            } catch {
-                encodingError = error
-                stop.pointee = true
+        for key in value.allKeys {
+            guard let keyString = key as? String,
+                  let codingKey = NSDictionaryCodingKey(stringValue: keyString),
+                  let object = value.jsonObject(forKey: key) else {
+                throw JSONError.invalidObjectType
             }
-        }
-        if let error = encodingError {
-            throw error
+            try encode(JSONElement(any: object), forKey: codingKey)
         }
     }
 }

@@ -84,7 +84,8 @@ public class JSONPatch: Codable {
     ///   - jsonArray: An array obtained from JSONSerialization containing json-patch operations.
     public convenience init(jsonArray: NSArray) throws {
         var operations: [JSONPatch.Operation] = []
-        for (index, element) in (jsonArray as Array).enumerated() {
+        for index in 0..<jsonArray.count {
+            let element = jsonArray.jsonObject(at: index)
             guard let obj = element as? NSDictionary else {
                 throw JSONError.invalidPatchFormat
             }
@@ -307,7 +308,7 @@ extension JSONPatch.Operation {
                                _ op: String,
                                _ field: String,
                                _ index: Int) throws -> T {
-        guard let value = jsonObject[field] as? T else {
+        guard let value = jsonObject.jsonObject(forKey: field as NSString) as? T else {
             throw JSONError.missingRequiredPatchField(op: op, index: index, field: field)
         }
         return value

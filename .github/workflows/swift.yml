@@ -40,6 +40,12 @@ jobs:
           swift --version
           swift test --package-path "$GITHUB_WORKSPACE" -Xswiftc -warnings-as-errors
           swift test --package-path "$GITHUB_WORKSPACE" --configuration release -Xswiftc -warnings-as-errors
+      - name: Simulator selector regression tests
+        run: |
+          python3 Scripts/test-select-ios-simulator.py
+          python3 Scripts/test-prepare-ios-simulator.py
+      - name: Install matching iOS simulator
+        run: bash Scripts/prepare-ios-simulator.sh
       - name: Xcode tests
         run: bash Scripts/check-apple.sh tests
 
