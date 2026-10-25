@@ -10,8 +10,7 @@ run_build() {
     shift
     local log="$check_root/$name.log"
     if ! xcodebuild -project JSONPatch.xcodeproj -derivedDataPath "$check_root/DerivedData" \
-        CODE_SIGNING_ALLOWED=NO SWIFT_TREAT_WARNINGS_AS_ERRORS=YES "$@" >"$log" 2>&1; then
-        cat "$log"
+        CODE_SIGNING_ALLOWED=NO SWIFT_TREAT_WARNINGS_AS_ERRORS=YES "$@" 2>&1 | tee "$log"; then
         return 1
     fi
     echo "$name passed ($log)"

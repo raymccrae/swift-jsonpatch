@@ -1,0 +1,23 @@
+name: Xcode 16 simulator diagnostics
+on: push
+jobs:
+  simulator:
+    runs-on: macos-15
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: '16.2'
+      - name: Provision runtime
+        timeout-minutes: 7
+        run: bash Scripts/prepare-ios-simulator.sh
+      - name: Boot runtime
+        timeout-minutes: 3
+        run: |
+          simulator_sdk="$(xcrun --sdk iphonesimulator --show-sdk-version)"
+          simulator_id="$(xcrun simctl list --json | python3 Scripts/select-ios-simulator.py "$simulator_sdk")"
+          xcrun simctl bootstatus "$simulator_id" -b
+      - name: Standalone tests
+        timeout-minutes: 5
+        run: bash Scripts/check-apple.sh tests
