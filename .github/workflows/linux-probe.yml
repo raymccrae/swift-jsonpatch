@@ -1,0 +1,10 @@
+name: Linux Foundation diagnostics
+on: push
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    container: swift:6.0.3
+    steps:
+      - uses: actions/checkout@v4
+      - run: swift Scripts/linux-probe.swift
+        shell: bash
