@@ -2,19 +2,17 @@
 
 Swift Package Manager is the recommended installation method for JSONPatch.
 Use Swift 6.0+ and, for Xcode integration, Xcode 16+.
-Version 2.0.0 is unreleased. To try this checkout, add it as a local package.
 
-## Add a local package in Xcode
+## Add the package in Xcode
 
 1. Select **File > Add Package Dependencies**.
-2. Select **Add Local** and choose this repository's directory.
-3. Add the `JSONPatch` product to your target.
-
-After v2.0.0 is released, use the repository URL `https://github.com/raymccrae/swift-jsonpatch.git` and select version 2.0.0 or later instead.
+2. Enter the repository URL `https://github.com/raymccrae/swift-jsonpatch.git`.
+3. Select **Up to Next Major Version** starting from **2.0.0**.
+4. Add the `JSONPatch` product to your target.
 
 ## Configure Package.swift
 
-For development, point the dependency at your local checkout. Replace `../swift-jsonpatch` with its path:
+Add the repository dependency and the `JSONPatch` product to your package:
 
 ```swift
 // swift-tools-version:6.0
@@ -24,7 +22,7 @@ let package = Package(
     name: "YourProject",
     platforms: [.macOS(.v10_15), .iOS(.v13)],
     dependencies: [
-        .package(path: "../swift-jsonpatch")
+        .package(url: "https://github.com/raymccrae/swift-jsonpatch.git", from: "2.0.0")
     ],
     targets: [
         .target(name: "YourProject", dependencies: [
@@ -35,8 +33,12 @@ let package = Package(
 )
 ```
 
-After v2.0.0 is released, replace the local dependency with:
+## Use a local checkout for development
+
+In Xcode, select **File > Add Package Dependencies > Add Local** and choose this repository's directory. Add the `JSONPatch` product to your target.
+
+In `Package.swift`, replace the repository dependency with a local path. Replace `../swift-jsonpatch` with your checkout's path:
 
 ```swift
-.package(url: "https://github.com/raymccrae/swift-jsonpatch.git", from: "2.0.0")
+.package(path: "../swift-jsonpatch")
 ```

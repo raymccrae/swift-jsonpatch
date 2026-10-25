@@ -15,7 +15,7 @@ Tests run on macOS 14+ or iOS/tvOS 17+ hosts; these test requirements do not cha
 
 ## Release
 
-**2.0.0 is unreleased.** This checkout contains the Swift 6 migration.
+Version 2.0.0 introduces the Swift 6 migration.
 See the [migration guide](Docs/Swift6Migration.md) for the breaking error-payload change and the [changelog](CHANGELOG.md) for release notes.
 Version 1.0.6 added Linux support.
 
@@ -28,7 +28,7 @@ See the [Swift Package Manager installation guide](Docs/SPM.md) for Xcode and `P
 
 ## CocoaPods
 
-Existing CocoaPods users can install version 2.0 directly from its Git tag once it is released.
+Existing CocoaPods users can install version 2.0 directly from the `v2.0.0` Git tag.
 This bypasses public Trunk, which is scheduled to become read-only on December 2, 2026.
 See the [CocoaPods installation guide](Docs/CocoaPods.md) for the Podfile configuration and guidance for users staying on version 1.x.
 

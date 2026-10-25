@@ -121,4 +121,4 @@ Simulator setup now selects an available runtime compatible with the selected SD
 
 A local standalone Xcode test attempt with Xcode 27.1 is blocked because its SDK rejects the existing macOS 10.15 deployment target (supported range starts at macOS 12). This does not change the declared deployment targets; the Xcode 16.2 and 26.3 CI jobs validate the supported release configurations. The attempt is logged in `/tmp/jsonpatch-linux-fix-apple-tests.log`.
 
-Published-tag installation remains a release-time check. Version 2.0.0 is still unreleased.
+Release documentation is prepared for version 2.0.0, dated October 25, 2026. Tag publication and installation checks against the published `v2.0.0` tag remain pending.

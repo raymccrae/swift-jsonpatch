@@ -1,6 +1,6 @@
 # Changelog
 
-## 2.0.0 — Unreleased
+## 2.0.0 — October 25, 2026
 
 - Require Swift 6.0 and use Swift 6 language mode across SwiftPM, Xcode, and CocoaPods.
 - Raise Apple deployment targets to macOS 10.15, iOS 13, tvOS 13, and watchOS 6. Drop support for older versions previously supported by the v1.0.6 CocoaPods package, whose minimums were macOS 10.12, iOS 11, tvOS 10, and watchOS 3.

@@ -8,7 +8,7 @@ See the [Swift 6 migration guide](Swift6Migration.md) for the API changes and in
 
 ## Install version 2.0 from Git
 
-**Version 2.0.0 is unreleased.** After the `v2.0.0` tag is published, replace your existing `RMJSONPatch` declaration in your `Podfile` with:
+To install version 2.0.0, replace your existing `RMJSONPatch` declaration in your `Podfile` with:
 
 ```ruby
 pod 'RMJSONPatch', :git => 'https://github.com/raymccrae/swift-jsonpatch.git', :tag => 'v2.0.0'
@@ -37,7 +37,7 @@ This excludes version 2.0. Keep your `Podfile.lock` under version control to pre
 
 ## Use a local checkout
 
-To try version 2.0 before release, add a local dependency to your `Podfile`:
+For development, add a local dependency to your `Podfile`:
 
 ```ruby
 platform :ios, '13.0'
