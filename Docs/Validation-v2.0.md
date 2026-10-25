@@ -107,3 +107,16 @@ The residual mutable-string fix copies `NSMutableString` leaves in both platform
 Regression tests cover dictionary strings, nested dictionaries, dictionaries inside arrays, and direct array strings. Patch tests cover add/replace at object, array, and root destinations, repeated applications, both copy options, and unchanged Foundation and Codable serialization after mutating returned strings. An independent probe reproduced the review's dictionary-string example and confirmed the patch stayed unchanged across two applications. It also confirmed that direct array strings remain independent when either the original or the copy is mutated. The probe source is `/tmp/jsonpatch-strings-probe/main.swift`; these evidence paths are temporary local files.
 
 Linux runtime behavior remains unverified, although both dictionary code branches contain the repair. No standalone Xcode, SDK framework, or distribution checks were rerun for this fix. The earlier 79-test standalone Xcode results remain historical and do not validate the mutable-string repair. The pending release checks above remain open.
+
+
+## October 25, 2026 Linux and simulator follow-up
+
+The Linux portability fixes preserve stored Foundation references during traversal and copying, compare nested booleans structurally, use literal Foundation property keys, and encode decimal-backed integers without converting them to `Double`. Regression coverage now includes nested mutation through mixed containers, decimal-backed integer boundaries, nested boolean equality, and distinct Unicode string values. Mutable-reference tests inspect the stored objects rather than corelibs Foundation's bridged Swift value snapshots.
+
+Local SwiftPM Debug and Release checks pass all 86 tests in 10 suites with warnings treated as errors using Apple Swift 6.4 and Xcode 27.1 on Apple Silicon. Logs are `/tmp/jsonpatch-linux-fix-macos-debug.log` and `/tmp/jsonpatch-linux-fix-macos-release.log`.
+
+[CI run 40179501402](https://github.com/raymccrae/swift-jsonpatch/actions/runs/40179501402) validates the source fixes at `56a0fd0` on the temporary validation branch. Swift 6.0.3 and 6.2 on Linux each pass all 86 tests in Debug and Release with warnings treated as errors. These results supersede the earlier pending Linux and minimum-toolchain checks for the SwiftPM suite.
+
+Simulator setup now selects an available runtime compatible with the selected SDK, provisions a supported iPhone when needed, and downloads a matching runtime only if no usable simulator exists. Download options are checked against the selected Xcode's capabilities. A nonzero download exit succeeds only if a usable simulator is verified afterward. The selector and provisioning scripts have 18 regression tests, including creation followed by reselection of the created device. Apple CI validation of the final simulator changes remains pending.
+
+Published-tag installation remains a release-time check. Version 2.0.0 is still unreleased.

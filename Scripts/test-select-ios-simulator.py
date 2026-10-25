@@ -83,7 +83,13 @@ class SimulatorSelectionTests(unittest.TestCase):
 
     def test_creation_uses_device_type_supported_by_matching_runtime(self):
         self.assertEqual(selector.creation_arguments(self.data, "18.2"),
-                         ["JSONPatch CI", "iphone16", "com.apple.CoreSimulator.SimRuntime.iOS-18-2"])
+                         ["iPhone JSONPatch CI", "iphone16", "com.apple.CoreSimulator.SimRuntime.iOS-18-2"])
+
+    def test_created_simulator_can_be_selected_on_next_invocation(self):
+        name, _, runtime = selector.creation_arguments(self.data, "18.2")
+        self.data["devices"][runtime] = [
+            {"name": name, "udid": "created-device", "isAvailable": True}]
+        self.assertEqual(selector.select_device(self.data, "18.2"), "created-device")
 
 
 if __name__ == "__main__":

@@ -41,7 +41,7 @@ def creation_arguments(data, sdk_version):
     runtime = matching_runtime(data, sdk_version)
     for device_type in runtime.get("supportedDeviceTypes", []):
         if device_type["name"].startswith("iPhone"):
-            return ["JSONPatch CI", device_type["identifier"], runtime["identifier"]]
+            return ["iPhone JSONPatch CI", device_type["identifier"], runtime["identifier"]]
     raise ValueError(f"No supported iPhone device type for iOS {sdk_version}.")
 
 

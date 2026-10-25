@@ -10,6 +10,8 @@
 - Repair standalone Xcode tests and support framework builds across Apple platforms.
 - Add a dedicated macOS framework scheme so Carthage archives the correct platform.
 - Add Swift 6 macOS/Linux CI and CocoaPods/Carthage distribution checks.
+- Preserve nested Foundation object references, literal Unicode property names, boolean equality, and decimal-backed integer precision on Linux.
+- Provision compatible iOS simulator runtimes for each Xcode version in CI.
 - Reject invalid JSON Pointer escape sequences.
 - Reject moves into a source value's descendants before modifying the document.
 - Support copying the document root into child paths.
