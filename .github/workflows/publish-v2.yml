@@ -1,0 +1,55 @@
+name: Publish and smoke-test JSONPatch 2.0.0
+on:
+  push:
+    branches: ['codex/publish-v2.0.0']
+permissions:
+  contents: read
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Publish verified tag
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          test "$(gh api repos/raymccrae/swift-jsonpatch/commits/v2.0.0 --jq '.sha')" = '7ccc425d3e58da374c9af600074c6ff223089fe8'
+          if gh release view v2.0.0 --repo raymccrae/swift-jsonpatch >/dev/null 2>&1; then
+            gh release view v2.0.0 --repo raymccrae/swift-jsonpatch --json url,isDraft,isPrerelease
+          else
+            gh release create v2.0.0 --repo raymccrae/swift-jsonpatch --verify-tag --title 'JSONPatch 2.0.0' --notes-file .release/notes.md --latest
+          fi
+  install:
+    needs: publish
+    runs-on: macos-15
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: v2.0.0
+      - uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: '26.3'
+      - name: Fetch CocoaPods consumer fixture
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh api repos/raymccrae/swift-jsonpatch/contents/.release/pod-smoke.rb?ref=codex/publish-v2.0.0 --jq '.content' | base64 --decode > "$RUNNER_TEMP/pod-smoke.rb"
+      - name: Install and build CocoaPods consumer from tag
+        run: |
+          mkdir "$RUNNER_TEMP/jsonpatch-pod-consumer"
+          cd "$RUNNER_TEMP/jsonpatch-pod-consumer"
+          ruby "$RUNNER_TEMP/pod-smoke.rb"
+          pod install
+          grep 'v2.0.0' Podfile.lock
+          xcodebuild -workspace Smoke.xcworkspace -scheme Smoke -sdk iphonesimulator -derivedDataPath "$RUNNER_TEMP/pod-derived" CODE_SIGNING_ALLOWED=NO SWIFT_TREAT_WARNINGS_AS_ERRORS=YES build
+      - name: Install and verify Carthage consumer from tag
+        run: |
+          mkdir "$RUNNER_TEMP/jsonpatch-carthage-consumer"
+          cd "$RUNNER_TEMP/jsonpatch-carthage-consumer"
+          echo 'github "raymccrae/swift-jsonpatch" == 2.0.0' > Cartfile
+          carthage update --use-xcframeworks --platform iOS,macOS,tvOS,watchOS
+          grep '2.0.0' Cartfile.resolved
+          python3 "$GITHUB_WORKSPACE/Scripts/check-xcframework.py" Carthage/Build/JSONPatch.xcframework ios macos tvos watchos
