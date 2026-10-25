@@ -1,5 +1,6 @@
 # Install with Swift Package Manager
 
+Swift Package Manager is the recommended installation method for JSONPatch.
 Use Swift 6.0+ and, for Xcode integration, Xcode 16+.
 Version 2.0.0 is unreleased. To try this checkout, add it as a local package.
 

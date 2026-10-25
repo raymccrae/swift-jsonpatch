@@ -21,11 +21,16 @@ Version 1.0.6 added Linux support.
 
 # Installation
 
-## CocoaPods
-See [CocoaPods.md](Docs/CocoaPods.md)
+## Swift Package Manager (recommended)
 
-## Swift Package Manager
-See [SPM.md](Docs/SPM.md)
+Use Swift Package Manager for new integrations and future releases.
+See the [Swift Package Manager installation guide](Docs/SPM.md) for Xcode and `Package.swift` instructions.
+
+## CocoaPods
+
+Existing CocoaPods users can install version 2.0 directly from its Git tag once it is released.
+This bypasses public Trunk, which is scheduled to become read-only on December 2, 2026.
+See the [CocoaPods installation guide](Docs/CocoaPods.md) for the Podfile configuration and guidance for users staying on version 1.x.
 
 ## Carthage
 See [Carthage.md](Docs/Carthage.md)
