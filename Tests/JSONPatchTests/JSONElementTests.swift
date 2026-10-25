@@ -23,6 +23,28 @@ import Testing
 @testable import JSONPatch
 
 struct JSONElementTests {
+    @Test func testStringEqualityPreservesUnicodeSpelling() throws {
+        #expect(JSONElement("é") != JSONElement("e\u{0301}"))
+        #expect(try JSONElement(any: ["é"] as NSArray) != JSONElement(any: ["e\u{0301}"] as NSArray))
+    }
+
+    @Test func testNestedBooleanEquality() throws {
+        let left = try JSONElement(any: ["nested": [true, false, ["value": true]]] as NSDictionary)
+        let right = try JSONElement(any: ["nested": [true, false, ["value": true]]] as NSDictionary)
+        let different = try JSONElement(any: ["nested": [1, 0, ["value": 1]]] as NSDictionary)
+        #expect(left == right)
+        #expect(left != different)
+    }
+
+    @Test func testNestedMutationRetainsParentReferences() throws {
+        let source = Data(#"{"outer":[{"items":[1,2]}]}"#.utf8)
+        let patch = try JSONPatch(data: Data(#"[{"op":"add","path":"/outer/0/items/-","value":3},{"op":"replace","path":"/outer/0/items/0","value":9},{"op":"remove","path":"/outer/0/items/1"}]"#.utf8))
+        let output = try patch.apply(to: source)
+        let value = try JSONSerialization.jsonObject(with: output) as? NSDictionary
+        let outer = try #require(value?["outer"] as? [NSDictionary])
+        #expect(outer.first?["items"] as? [Int] == [9, 3])
+    }
+
 
     @Test(arguments: ["[]", "[1,2]"])
     func testArrayAppendTokenHasNoExistingValue(_ json: String) throws {
@@ -439,10 +461,11 @@ struct JSONElementTests {
         let composed = "\u{00e9}" + suffix
         let decomposed = "e\u{0301}" + suffix
         for mutable in [false, true] {
-            // Construct Foundation keys directly so Swift Dictionary cannot merge them.
+            // Use literal Foundation keys so corelibs NSString and Swift Dictionary
+            // cannot merge canonically equivalent property spellings.
             let document = NSMutableDictionary()
-            document.setObject(NSNumber(value: 1), forKey: composed as NSString)
-            document.setObject(NSMutableDictionary(), forKey: decomposed as NSString)
+            document.setObject(NSNumber(value: 1), forKey: jsonObjectKey(composed))
+            document.setObject(NSMutableDictionary(), forKey: jsonObjectKey(decomposed))
             #expect(document.count == 2)
             var element: JSONElement = mutable
                 ? .mutableObject(value: document)
@@ -454,8 +477,8 @@ struct JSONElementTests {
 
             let result = try #require(element.rawValue as? NSDictionary)
             #expect(result.count == 1)
-            #expect(result[composed] == nil)
-            let destination = try #require(result[decomposed] as? NSDictionary)
+            #expect(result.jsonObject(forKey: jsonObjectKey(composed)) == nil)
+            let destination = try #require(result.jsonObject(forKey: jsonObjectKey(decomposed)) as? NSDictionary)
             #expect(destination["x"] as? NSNumber == NSNumber(value: 1))
         }
     }

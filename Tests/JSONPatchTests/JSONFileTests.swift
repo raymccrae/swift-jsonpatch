@@ -59,7 +59,7 @@ struct JSONFileTests {
                 let result = try jsonPatch.apply(to: doc)
 
                 if let expected = testJson["expected"] {
-                    guard (result as? NSObject)?.isEqual(expected) ?? false else {
+                    guard try JSONElement(any: result) == JSONElement(any: expected) else {
                         Issue.record("result does not match expected in test: \(comment)")
                         continue
                     }

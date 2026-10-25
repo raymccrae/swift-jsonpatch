@@ -21,12 +21,26 @@
 import Foundation
 import CoreFoundation
 
+// Corelibs NSString equality normalizes Unicode. CFString-backed keys retain
+// JSON's literal property identity, including composed/decomposed spellings.
+func jsonObjectKey(_ string: String) -> NSString {
+    #if os(Linux)
+    let characters = Array(string.utf16)
+    let key = characters.withUnsafeBufferPointer {
+        CFStringCreateWithCharacters(nil, $0.baseAddress, $0.count)!
+    }
+    return unsafeBitCast(key, to: NSString.self)
+    #else
+    return string as NSString
+    #endif
+}
+
 extension NSDictionary {
 
     func jsonObject(forKey key: Any) -> Any? {
         #if os(Linux)
         let dictionary = unsafeBitCast(self, to: CFDictionary.self)
-        let object = key as AnyObject
+        let object: AnyObject = (key as? String).map(jsonObjectKey) ?? (key as AnyObject)
         return withExtendedLifetime(object) {
             guard let pointer = CFDictionaryGetValue(dictionary, Unmanaged.passUnretained(object).toOpaque()) else {
                 return nil
@@ -56,7 +70,7 @@ extension NSDictionary {
                 copy = value
             }
             #if os(Linux)
-            result.setObject(copy, forKey: (key as? NSString) ?? String(describing: key) as NSString)
+            result.setObject(copy, forKey: jsonObjectKey((key as? String) ?? String(describing: key)))
             #else
             result[key] = copy
             #endif

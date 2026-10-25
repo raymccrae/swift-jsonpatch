@@ -29,6 +29,18 @@ fileprivate struct Person: Codable {
 }
 
 struct JSONCodableTests {
+    @Test func testDecimalBackedIntegerEncodingPreservesPrecision() throws {
+        for literal in ["-9223372036854775808", "-9223372036854775807", "18446744073709551615"] {
+            let element = JSONElement.number(value: NSDecimalNumber(string: literal))
+            let encoded = try JSONEncoder().encode(element)
+            if let expected = Int64(literal) {
+                #expect(try JSONDecoder().decode(Int64.self, from: encoded) == expected)
+            } else {
+                #expect(try JSONDecoder().decode(UInt64.self, from: encoded) == UInt64(literal))
+            }
+        }
+    }
+
     @Test func testIntegerSerializationBoundaries() throws {
         let literals = [
             "-9223372036854775808", "-9223372036854775807",

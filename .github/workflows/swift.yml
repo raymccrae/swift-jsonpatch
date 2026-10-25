@@ -41,14 +41,11 @@ jobs:
           swift test --package-path "$GITHUB_WORKSPACE" -Xswiftc -warnings-as-errors
           swift test --package-path "$GITHUB_WORKSPACE" --configuration release -Xswiftc -warnings-as-errors
       - name: Simulator selector regression tests
-        run: python3 Scripts/test-select-ios-simulator.py
-      - name: Install matching iOS simulator
         run: |
-          simulator_sdk="$(xcrun --sdk iphonesimulator --show-sdk-version)"
-          # Pin to this Xcode's SDK rather than the runner image's newest runtime.
-          # https://developer.apple.com/documentation/xcode/downloading-and-installing-additional-xcode-components
-          xcodebuild -downloadPlatform iOS -buildVersion "$simulator_sdk" -architectureVariant universal
-          xcrun simctl list --json | python3 Scripts/select-ios-simulator.py "$simulator_sdk" --create-if-needed
+          python3 Scripts/test-select-ios-simulator.py
+          python3 Scripts/test-prepare-ios-simulator.py
+      - name: Install matching iOS simulator
+        run: bash Scripts/prepare-ios-simulator.sh
       - name: Xcode tests
         run: bash Scripts/check-apple.sh tests
 

@@ -213,7 +213,7 @@ extension JSONElement {
     private func value(for component: String) throws -> JSONElement {
         switch self {
         case .object(let dictionary), .mutableObject(let dictionary as NSDictionary):
-            guard let property = dictionary.jsonObject(forKey: component as NSString) else {
+            guard let property = dictionary.jsonObject(forKey: jsonObjectKey(component)) else {
                 throw JSONError.referencesNonexistentValue
             }
             let child = try JSONElement(any: property)
@@ -247,7 +247,7 @@ extension JSONElement {
     private mutating func setValue(_ value: JSONElement, component: String, replace: Bool) throws {
         switch self {
         case .mutableObject(let dictionary):
-            dictionary.setObject(value.rawValue, forKey: component as NSString)
+            dictionary.setObject(value.rawValue, forKey: jsonObjectKey(component))
         case .mutableArray(let array):
             if component == "-" {
                 guard !replace else {
@@ -284,10 +284,10 @@ extension JSONElement {
     private mutating func removeValue(component: String) throws {
         switch self {
         case .mutableObject(let dictionary):
-            guard dictionary.jsonObject(forKey: component as NSString) != nil else {
+            guard dictionary.jsonObject(forKey: jsonObjectKey(component)) != nil else {
                 throw JSONError.referencesNonexistentValue
             }
-            dictionary.removeObject(forKey: component as NSString)
+            dictionary.removeObject(forKey: jsonObjectKey(component))
         case .mutableArray(let array):
             guard
                 JSONPointer.isValidArrayIndex(component),

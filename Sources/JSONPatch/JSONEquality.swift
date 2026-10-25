@@ -19,6 +19,7 @@
 //
 
 import Foundation
+import CoreFoundation
 
 protocol JSONEquatable {
     func isJSONEquals(to element: JSONElement) -> Bool
@@ -26,11 +27,7 @@ protocol JSONEquatable {
 
 extension NSNumber: JSONEquatable {
     var isBoolean: Bool {
-        #if os(Linux)
-        return objCType.pointee == 0x63 // character code for 'c'
-        #else
-        return CFNumberGetType(self) == .charType
-        #endif
+        return CFGetTypeID(self) == CFBooleanGetTypeID()
     }
 
     func isJSONEquals(to element: JSONElement) -> Bool {
@@ -55,7 +52,7 @@ extension NSString: JSONEquatable {
             return false
         }
 
-        return isEqual(str)
+        return JSONPointer.tokensEqual(self as String, str as String)
     }
 }
 

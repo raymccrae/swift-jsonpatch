@@ -57,7 +57,7 @@ extension JSONElement: Codable {
             let dict = NSMutableDictionary()
             for key in keys {
                 let value = try keyedContainer.decode(JSONElement.self, forKey: key)
-                dict[key.stringValue] = value.rawValue
+                dict.setObject(value.rawValue, forKey: jsonObjectKey(key.stringValue))
             }
             self = .mutableObject(value: dict)
         } else {
