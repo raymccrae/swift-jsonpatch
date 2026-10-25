@@ -38,3 +38,13 @@ for literal in ["-9223372036854775808", "9223372036854775808", "1844674407370955
  print("numeric roundtrip",literal,String(decoding:out,as:UTF8.self))
  } catch {print("numeric failed",literal,error)}
 }
+
+for literal in ["-9223372036854775808", "-9223372036854775807", "-9007199254740993", "-9007199254740992", "-9007199254740991", "-1", "0", "1", "9007199254740991", "9007199254740992", "9007199254740993", "9223372036854775806", "9223372036854775807", "9223372036854775808", "18446744073709551614", "18446744073709551615"] {
+ let data=Data("[{\"op\":\"add\",\"path\":\"/x\",\"value\":\(literal)}]".utf8)
+ do { _ = try JSONDecoder().decode(JSONPatch.self,from:data); print("decode success",literal) } catch {print("decode FAIL",literal,error)}
+ do {
+ let patch=try JSONPatch(data:data)
+ print("foundation out",literal,String(decoding:try patch.data(),as:UTF8.self))
+ print("codable out",literal,String(decoding:try JSONEncoder().encode(patch),as:UTF8.self))
+ } catch { print("serialize FAIL",literal,error) }
+}
