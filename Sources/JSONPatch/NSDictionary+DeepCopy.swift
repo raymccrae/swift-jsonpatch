@@ -19,43 +19,48 @@
 //
 
 import Foundation
+import CoreFoundation
 
 extension NSDictionary {
 
-    func deepMutableCopy() -> NSMutableDictionary {
-        let result = NSMutableDictionary()
-
-        self.enumerateKeysAndObjects { (key, value, stop) in
-            #if os(Linux)
-            switch value {
-            case let array as NSArray:
-                result.setObject(array.deepMutableCopy(), forKey: (key as? NSString) ?? String(describing: key) as NSString)
-            case let dict as NSDictionary:
-                result.setObject(dict.deepMutableCopy(), forKey: (key as? NSString) ?? String(describing: key) as NSString)
-            case let str as NSMutableString:
-                result.setObject(str.mutableCopy(), forKey: (key as? NSString) ?? String(describing: key) as NSString)
-            case let obj as NSObject:
-                result.setObject(obj.copy(), forKey: (key as? NSString) ?? String(describing: key) as NSString)
-            default:
-                result.setObject(value, forKey: (key as? NSString) ?? String(describing: key) as NSString)
+    func jsonObject(forKey key: Any) -> Any? {
+        #if os(Linux)
+        let dictionary = unsafeBitCast(self, to: CFDictionary.self)
+        let object = key as AnyObject
+        return withExtendedLifetime(object) {
+            guard let pointer = CFDictionaryGetValue(dictionary, Unmanaged.passUnretained(object).toOpaque()) else {
+                return nil
             }
-            #else
-            switch value {
-            case let array as NSArray:
-                result[key] = array.deepMutableCopy()
-            case let dict as NSDictionary:
-                result[key] = dict.deepMutableCopy()
-            case let str as NSMutableString:
-                result[key] = str.mutableCopy()
-            case let obj as NSObject:
-                result[key] = obj.copy()
-            default:
-                result[key] = value
-            }
-            #endif
+            return Unmanaged<AnyObject>.fromOpaque(pointer).takeUnretainedValue()
         }
-
-        return result
+        #else
+        return object(forKey: key)
+        #endif
     }
 
+    func deepMutableCopy() -> NSMutableDictionary {
+        let result = NSMutableDictionary()
+        for key in allKeys {
+            guard let value = jsonObject(forKey: key) else { continue }
+            let copy: Any
+            switch value {
+            case let array as NSArray:
+                copy = array.deepMutableCopy()
+            case let dict as NSDictionary:
+                copy = dict.deepMutableCopy()
+            case let str as NSMutableString:
+                copy = str.mutableCopy()
+            case let obj as NSObject:
+                copy = obj.copy()
+            default:
+                copy = value
+            }
+            #if os(Linux)
+            result.setObject(copy, forKey: (key as? NSString) ?? String(describing: key) as NSString)
+            #else
+            result[key] = copy
+            #endif
+        }
+        return result
+    }
 }

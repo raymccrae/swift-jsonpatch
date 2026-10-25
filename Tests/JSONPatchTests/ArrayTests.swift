@@ -29,7 +29,7 @@ struct ArrayTests {
         a.add("e")
 
         #expect(c.count == 1)
-        guard let d = c[0] as? NSMutableArray else {
+        guard let d = c.jsonObject(at: 0) as? NSMutableArray else {
             Issue.record("Expected NSMutableArray")
             return
         }
@@ -49,12 +49,12 @@ struct ArrayTests {
         c.add("f")
 
         #expect(d.count == 1)
-        guard let e = d[0] as? NSMutableArray else {
+        guard let e = d.jsonObject(at: 0) as? NSMutableArray else {
             Issue.record("Expected NSMutableArray")
             return
         }
         #expect(e.count == 1)
-        guard let f = e[0] as? NSMutableArray else {
+        guard let f = e.jsonObject(at: 0) as? NSMutableArray else {
             Issue.record("Expected NSMutableArray")
             return
         }
@@ -73,7 +73,7 @@ struct ArrayTests {
         dict["b"] = "2"
 
         #expect(copy.count == 1)
-        guard let copyDict = copy[0] as? NSMutableDictionary else {
+        guard let copyDict = copy.jsonObject(at: 0) as? NSMutableDictionary else {
             Issue.record("Expected NSMutableDictionary")
             return
         }
@@ -85,7 +85,7 @@ struct ArrayTests {
         let originalString = NSMutableString(string: "1")
         let array = NSMutableArray(object: originalString)
         let copy = array.deepMutableCopy()
-        let copiedString = try #require(copy.object(at: 0) as? NSMutableString)
+        let copiedString = try #require(copy.jsonObject(at: 0) as? NSMutableString)
         originalString.setString("2")
 
         #expect(copy.count == 1)
@@ -102,8 +102,8 @@ struct ArrayTests {
         leaf["s"] = originalString
         let dictionary = nested ? NSMutableDictionary(dictionary: ["nested": leaf]) : leaf
         let copy = dictionary.deepMutableCopy()
-        let copiedLeaf = nested ? try #require(copy.object(forKey: "nested") as? NSDictionary) : copy
-        let copiedString = try #require(copiedLeaf.object(forKey: "s") as? NSMutableString)
+        let copiedLeaf = nested ? try #require(copy.jsonObject(forKey: "nested") as? NSDictionary) : copy
+        let copiedString = try #require(copiedLeaf.jsonObject(forKey: "s") as? NSMutableString)
 
         #expect(copiedString !== originalString)
         originalString.setString("original changed")
@@ -118,8 +118,8 @@ struct ArrayTests {
         dictionary["s"] = originalString
         let array = NSMutableArray(object: dictionary)
         let copy = array.deepMutableCopy()
-        let copiedDictionary = try #require(copy.object(at: 0) as? NSDictionary)
-        let copiedString = try #require(copiedDictionary.object(forKey: "s") as? NSMutableString)
+        let copiedDictionary = try #require(copy.jsonObject(at: 0) as? NSDictionary)
+        let copiedString = try #require(copiedDictionary.jsonObject(forKey: "s") as? NSMutableString)
 
         #expect(copiedString !== originalString)
         copiedString.setString("copy changed")

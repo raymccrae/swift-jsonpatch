@@ -474,7 +474,7 @@ struct JSONElementTests {
             try element.move(from: source, to: destination)
         }
         #expect(document.count == 1)
-        #expect(document[key] as? NSDictionary === child)
+        #expect(document.jsonObject(forKey: key as NSString) as? NSDictionary === child)
         #expect(child.count == 1)
         #expect(child["value"] as? NSNumber == NSNumber(value: 1))
     }

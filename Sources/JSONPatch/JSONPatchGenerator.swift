@@ -54,8 +54,8 @@ struct JSONPatchGenerator {
                 return false
             }
             for key in keysA {
-                guard let valueA = a.object(forKey: key.name as NSString),
-                      let valueB = b.object(forKey: key.name as NSString),
+                guard let valueA = a.jsonObject(forKey: key.name as NSString),
+                      let valueB = b.jsonObject(forKey: key.name as NSString),
                       let elementA = try? JSONElement(any: valueA),
                       let elementB = try? JSONElement(any: valueB),
                       valuesEqual(elementA, elementB) else { return false }
@@ -67,8 +67,8 @@ struct JSONPatchGenerator {
              (.mutableArray(let a as NSArray), .mutableArray(let b as NSArray)):
             guard a.count == b.count else { return false }
             for index in 0..<a.count {
-                guard let elementA = try? JSONElement(any: a[index]),
-                      let elementB = try? JSONElement(any: b[index]),
+                guard let elementA = try? JSONElement(any: a.jsonObject(at: index)),
+                      let elementB = try? JSONElement(any: b.jsonObject(at: index)),
                       valuesEqual(elementA, elementB) else { return false }
             }
             return true
@@ -129,8 +129,8 @@ struct JSONPatchGenerator {
         }
 
         for key in keys.intersection(otherKeys) {
-            guard let valueA = a.object(forKey: key.name as NSString),
-                  let valueB = b.object(forKey: key.name as NSString) else {
+            guard let valueA = a.jsonObject(forKey: key.name as NSString),
+                  let valueB = b.jsonObject(forKey: key.name as NSString) else {
                 continue
             }
             try computeUnchanged(pointer: pointer.appended(withComponent: key.name),
@@ -145,8 +145,8 @@ struct JSONPatchGenerator {
         let count = min(a.count, b.count)
         for index in 0..<count {
             try computeUnchanged(pointer: pointer.appended(withIndex: index),
-                                 a: try JSONElement(any: a[index]),
-                                 b: try JSONElement(any: b[index]))
+                                 a: try JSONElement(any: a.jsonObject(at: index)),
+                                 b: try JSONElement(any: b.jsonObject(at: index)))
         }
     }
 
@@ -195,20 +195,20 @@ struct JSONPatchGenerator {
         }
 
         for key in sourceKeySet.subtracting(targetKeySet) {
-            guard let value = source.object(forKey: key.name as NSString) else { continue }
+            guard let value = source.jsonObject(forKey: key.name as NSString) else { continue }
             remove(path: pointer.appended(withComponent: key.name),
                    value: try JSONElement(any: value))
         }
 
         for key in targetKeySet.subtracting(sourceKeySet) {
-            guard let value = target.object(forKey: key.name as NSString) else { continue }
+            guard let value = target.jsonObject(forKey: key.name as NSString) else { continue }
             add(path: pointer.appended(withComponent: key.name),
                 value: try JSONElement(any: value))
         }
 
         for key in sourceKeySet.intersection(targetKeySet) {
-            guard let sourceValue = source.object(forKey: key.name as NSString),
-                  let targetValue = target.object(forKey: key.name as NSString) else {
+            guard let sourceValue = source.jsonObject(forKey: key.name as NSString),
+                  let targetValue = target.jsonObject(forKey: key.name as NSString) else {
                 continue
             }
             try generateDiffs(pointer: pointer.appended(withComponent: key.name),
@@ -224,22 +224,22 @@ struct JSONPatchGenerator {
             // target is smaller than source, remove end elements.
             for index in (target.count..<source.count).reversed() {
                 remove(path: pointer.appended(withIndex: index),
-                       value: try JSONElement(any: source[index]))
+                       value: try JSONElement(any: source.jsonObject(at: index)))
             }
         }
 
         let count = min(source.count, target.count)
         for index in 0..<count {
             try generateDiffs(pointer: pointer.appended(withIndex: index),
-                              source: try JSONElement(any: source[index]),
-                              target: try JSONElement(any: target[index]))
+                              source: try JSONElement(any: source.jsonObject(at: index)),
+                              target: try JSONElement(any: target.jsonObject(at: index)))
         }
 
         if source.count < target.count {
             let appendPointer = pointer.appended(withComponent: "-")
             for index in source.count..<target.count {
                 add(path: appendPointer,
-                    value: try JSONElement(any: target[index]))
+                    value: try JSONElement(any: target.jsonObject(at: index)))
             }
         }
     }

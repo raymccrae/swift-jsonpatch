@@ -19,13 +19,26 @@
 //
 
 import Foundation
+import CoreFoundation
 
 extension NSArray {
+
+    // Corelibs Foundation's public accessor bridges nested Foundation objects to
+    // Swift values. Read the retained object so mutations keep their identity.
+    func jsonObject(at index: Int) -> Any {
+        #if os(Linux)
+        let array = unsafeBitCast(self, to: CFArray.self)
+        return Unmanaged<AnyObject>.fromOpaque(CFArrayGetValueAtIndex(array, index)).takeUnretainedValue()
+        #else
+        return object(at: index)
+        #endif
+    }
 
     func deepMutableCopy() -> NSMutableArray {
         let result = NSMutableArray(capacity: count)
 
-        for element in self {
+        for index in 0..<count {
+            let element = jsonObject(at: index)
             switch element {
             case let array as NSArray:
                 result.add(array.deepMutableCopy())
