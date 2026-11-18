@@ -15,7 +15,7 @@ swift test --filter 'JSONPatchGenerator|GenerationJSON' -Xswiftc -warnings-as-er
 
 ## Correctness and quality expectations
 
-The [focused quality tests](../Tests/JSONPatchTests/JSONPatchGeneratorQualityTests.swift) protect useful output from the v2.0.0 generator before traversal changes begin.
+The [focused quality tests](../Tests/JSONPatchTests/JSONPatchGeneratorQualityTests.swift), established before stage 2, protect useful output from the v2.0.0 generator as traversal changes are evaluated.
 
 | Cases | Expectations |
 | --- | --- |
@@ -25,12 +25,14 @@ The [focused quality tests](../Tests/JSONPatchTests/JSONPatchGeneratorQualityTes
 | Small edits beside large unchanged subtrees | One leaf replacement preserves the surrounding structure and stays below a generous 128-byte envelope. |
 | Large duplicate strings, arrays, and objects | One compact `copy`, below 256 bytes, works with a stable donor before or after the addition in array traversal order. Equivalent donors may be chosen in any order. |
 | Removals, replacements, and nested array transfers | Copy sources and array indices remain valid when the patch executes sequentially. |
-| Mutable inputs across generation calls | Later generation sees changed input values rather than stale cached state. |
+| Mutable inputs across generation calls | Later generation sees changed input values rather than stale cached state, including shared mutable arrays and objects beneath different source/target roots. |
 | Data initializer | Generation through the data API retains the focused operations and survives serialization and application. |
 
 Exact operation expectations apply to deliberately simple cases. These are regression expectations, not a public promise of a globally minimal patch. Byte envelopes protect small patches and useful copies without fixing serialized field order. They are not timing thresholds.
 
 The tests do not require the generator's inefficient positional output for prepends, middle insertions, or reordering. Those cases receive correctness coverage here and measurements in the [benchmark suite](../Benchmarks/README.md). Add improved-quality expectations alongside the later array algorithm. Likewise, choosing between tiny literals and long `copy` paths belongs to the later encoding policy.
+
+Stage 2 adds regressions for an unchanged copy source beneath a changing ancestor, encountered before or after the addition, and for the identity shortcut on shared mutable subtrees. These tests pass against both the original release and the stage 2 implementation; they protect existing behavior rather than introduce a different copy policy.
 
 ## Seeded generated documents
 

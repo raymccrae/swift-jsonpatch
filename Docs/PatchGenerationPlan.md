@@ -2,7 +2,7 @@
 
 Build a reproducible benchmark suite before changing the generator. Use it to improve generation time, patch size, application time, and memory use while preserving JSON Patch correctness and the existing public API.
 
-This is an implementation plan. Stage 1's harness and commands are implemented in the [benchmark suite](../Benchmarks/README.md); its local macOS reference and pending cross-platform captures are tracked under [Baselines](../Benchmarks/Baselines/README.md). The feature branch remains local at the user's request. Stage 1's Linux and supported-Xcode baseline acceptance criterion is pending; stages 2–5 remain proposed. Implement each stage as a separate, reviewable change, and retain only improvements supported by measurements.
+This is an implementation plan. Stage 1's harness and commands are implemented in the [benchmark suite](../Benchmarks/README.md); its local macOS reference and pending cross-platform captures are tracked under [Baselines](../Benchmarks/Baselines/README.md). Stage 2's shared comparison and planning implementation is assessed in the [local macOS report](../Benchmarks/Reports/stage2-macos-arm64-swift6.4.2.md). The feature branch remains local at the user's request. Linux and supported-Xcode acceptance checks for stages 1 and 2 are pending; stages 3–5 remain proposed. Keep each stage reviewable, and retain only improvements supported by measurements.
 
 Use `feature/patch-generation` for this proposal, based on `develop`. Create subsequent `feature/<topic>` branches from `develop` for selected implementation stages. Merge selected work into `develop`; reserve `master` for released versions. Follow the [repository workflow](../AGENTS.md).
 
@@ -10,9 +10,9 @@ Use `feature/patch-generation` for this proposal, based on `develop`. Create sub
 
 The reference implementation is v2.0.0, commit `7ccc425d3e58da374c9af600074c6ff223089fe8`.
 
-The [generator](../Sources/JSONPatch/JSONPatchGenerator.swift) performs an unchanged-value traversal followed by a difference traversal. Both use recursive equality checks. Each addition searches unchanged candidates for a possible `copy`. Arrays are compared by position, with removals and additions at the end.
+The v2.0.0 reference performs an unchanged-value traversal followed by a difference traversal. Both use recursive equality checks. Each addition searches unchanged candidates for a possible `copy`. Arrays are compared by position, with removals and additions at the end. The [generator](../Sources/JSONPatch/JSONPatchGenerator.swift) now contains the locally assessed stage 2 implementation described below.
 
-The [generator tests](../Tests/JSONPatchTests/JSONPatchGeneratorTests.swift) cover large documents, array transfers, Unicode property identity, and copy candidates. The former `testPerformanceGenerate` is named `testGenerateLargeFixtureSmoke`; timing lives in the separate benchmark executable. Before stage 2, [focused quality expectations and seeded generated-document checks](PatchGenerationTests.md) extend the ordinary test suite while leaving the generator unchanged. These tests protect focused edits, useful copies, sequential source validity, input preservation, and reuse without requiring one ordering for independent object operations.
+The [generator tests](../Tests/JSONPatchTests/JSONPatchGeneratorTests.swift) cover large documents, array transfers, Unicode property identity, and copy candidates. The former `testPerformanceGenerate` is named `testGenerateLargeFixtureSmoke`; timing lives in the separate benchmark executable. Before stage 2, [focused quality expectations and seeded generated-document checks](PatchGenerationTests.md) were added to the ordinary test suite without altering the generator. These tests protect focused edits, useful copies, sequential source validity, input preservation, and reuse without requiring one ordering for independent object operations.
 
 Temporary experiments suggest that sharing traversal work and indexing copy candidates can reduce generation time without losing compact copies. They also show that a `copy` can be larger than an `add`, and that a front insertion can produce many positional replacements. Treat those results as hypotheses. Do not use their timings as the project's performance baseline or copy the experimental implementation into production.
 
@@ -112,6 +112,8 @@ Run the full matrix manually or through a manually triggered workflow, retaining
 **Stage completion:** another developer can reproduce a result from documented commands, compare two revisions using the same harness, and explain every measured boundary. The baseline report contains per-family results for Darwin and Linux, a measured noise range, known limitations, and the next cost to investigate. No generator algorithm changes are included in this stage.
 
 ## 2. Reduce repeated traversal and comparison
+
+**Local implementation:** corresponding values are compared once into a per-call plan; stable sources are collected before copies are resolved in operation order. No-addition cases skip source collection and unchanged paths. The [assessment](../Benchmarks/Reports/stage2-macos-arm64-swift6.4.2.md) covers profiling, all seven quick-corpus measurements, full-corpus generation, memory and size tradeoffs, focused regressions, and the remaining cross-platform checks. The implementation is retained on `feature/patch-generation` for review; the stage's cross-platform completion criterion remains pending.
 
 Profile representative sparse, unchanged, deeply nested, and large-fixture cases from the baseline. Identify time spent in equality, key-set construction, Foundation bridging, pointer construction, and candidate collection.
 

@@ -102,6 +102,8 @@ The benchmark workflow tests the harness on Swift 6.0.3 and 6.2 Linux, and Xcode
 
 Curated reference summaries and their reproduction details belong in [Baselines](Baselines/README.md). Retain raw reports as artifacts. A reference run is an observation on its recorded machine, not a portable performance promise.
 
+The [stage 2 macOS assessment](Reports/stage2-macos-arm64-swift6.4.2.md) compares shared traversal and planning against v2.0.0, including the measured tradeoffs and reproduction commands. Its compact comparison data lives beside the report; raw samples stay under the ignored results directory.
+
 Export a compact reference summary after a successful three-pair release-versus-release run:
 
 ```sh

@@ -121,6 +121,26 @@ struct JSONPatchGeneratorQualityTests {
         }
     }
 
+    @Test(arguments: [false, true])
+    func copyFromUnchangedChildOfChangingAncestor(donorFirst: Bool) throws {
+        let payload = try largeValue(kind: 2).json()
+        let before = "{\"stable\":\(payload),\"changing\":0}"
+        let after = "{\"stable\":\(payload),\"changing\":1}"
+        let source = donorFirst ? "[\(before),{}]" : "[{},\(before)]"
+        let target = donorFirst ? "[\(after),{\"added\":\(payload)}]" : "[{\"added\":\(payload)},\(after)]"
+        let donor = donorFirst ? 0 : 1
+        let destination = donorFirst ? 1 : 0
+        try assertGeneratedPatch(source: source, target: target) { (patch: JSONPatch) throws -> Void in
+            let actual = try operations(patch)
+            let copy = try GenerationJSON.parse("{\"op\":\"copy\",\"from\":\"/\(donor)/stable\",\"path\":\"/\(destination)/added\"}")
+            let replacement = try GenerationJSON.parse("{\"op\":\"replace\",\"path\":\"/\(donor)/changing\",\"value\":1}")
+            #expect(actual.count == 2)
+            #expect(actual.contains(copy))
+            #expect(actual.contains(replacement))
+            #expect(try patch.data().count < 384)
+        }
+    }
+
     @Test(arguments: ["", "a/b~"])
     func copyPathsEscapeSourceAndDestination(donor: String) throws {
         let payload = largeValue(kind: 0)
@@ -158,6 +178,37 @@ struct JSONPatchGeneratorQualityTests {
         #expect(try GenerationJSON(patch.apply(to: source, options: [.applyOnCopy])) == GenerationJSON.parse(#"{"value":4}"#))
         #expect(try GenerationJSON(source) == GenerationJSON.parse(#"{"value":3}"#))
         #expect(try GenerationJSON(target) == GenerationJSON.parse(#"{"value":4}"#))
+    }
+
+    @Test(arguments: [1, 2])
+    func sharedMutableSubtreesRemainSafeAcrossCalls(kind: Int) throws {
+        let shared = try GenerationJSON.read(largeValue(kind: kind).json(), mutable: true)
+        let source = NSMutableDictionary(dictionary: ["stable": shared, "edit": 0])
+        let target = NSMutableDictionary(dictionary: ["stable": shared, "added": shared, "edit": 1])
+        for revision in [0, 1] {
+            if let object = shared as? NSMutableDictionary { object["revision"] = revision }
+            else {
+                let array = try #require(shared as? NSMutableArray)
+                array[0] = revision
+            }
+            source["edit"] = revision
+            target["edit"] = revision + 1
+            let expectedSource = try GenerationJSON(source)
+            let expectedTarget = try GenerationJSON(target)
+            let sourceData = try JSONSerialization.data(withJSONObject: source)
+            let patch = try JSONPatch(source: .mutableObject(value: source), target: .mutableObject(value: target))
+            let actual = try operations(patch)
+            #expect(actual.count == 2)
+            #expect(try actual.contains(GenerationJSON.parse(#"{"op":"copy","from":"/stable","path":"/added"}"#)))
+            #expect(try actual.contains(GenerationJSON.parse("{\"op\":\"replace\",\"path\":\"/edit\",\"value\":\(revision + 1)}")))
+            for reusable in [patch, try JSONPatch(data: patch.data())] {
+                let fresh = try JSONSerialization.jsonObject(with: sourceData, options: [.mutableContainers])
+                #expect(try GenerationJSON(reusable.apply(to: fresh)) == expectedTarget)
+                #expect(try GenerationJSON(reusable.apply(to: source, options: [.applyOnCopy])) == expectedTarget)
+            }
+            #expect(try GenerationJSON(source) == expectedSource)
+            #expect(try GenerationJSON(target) == expectedTarget)
+        }
     }
 
     @Test(arguments: [("null", "[true,9007199254740993]"),

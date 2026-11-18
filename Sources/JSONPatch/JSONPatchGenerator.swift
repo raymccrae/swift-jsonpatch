@@ -77,188 +77,161 @@ struct JSONPatchGenerator {
         }
     }
 
-    fileprivate enum Operation {
-        case add(path: JSONPointer, value: JSONElement)
-        case remove(path: JSONPointer, value: JSONElement)
-        case replace(path: JSONPointer, old: JSONElement, value: JSONElement)
-        case copy(from: JSONPointer, path: JSONPointer, value: JSONElement)
+    // An equal subtree is kept as one source, matching the original candidate
+    // policy. Paths are constructed only after comparison, when edits are known.
+    private enum Comparison {
+        case unchanged(JSONElement)
+        case replace(JSONElement)
+        case object(removals: [ObjectKey], additions: [(ObjectKey, JSONElement)],
+                    children: [(ObjectKey, Comparison)])
+        case array(removals: Range<Int>, additions: [JSONElement], children: [Comparison])
+
+        var isUnchanged: Bool {
+            if case .unchanged = self { return true }
+            return false
+        }
     }
 
+    private var hasAdditions = false
     private var unchanged: [JSONPointer: JSONElement] = [:]
-    private var operations: [Operation] = []
-    private var patchOperations: [JSONPatch.Operation] {
-        return operations.map(JSONPatch.Operation.init)
-    }
+    private var operations: [JSONPatch.Operation] = []
 
     static func generatePatch(source: JSONElement, target: JSONElement) throws -> [JSONPatch.Operation] {
         var generator = JSONPatchGenerator()
-        try generator.computeUnchanged(pointer: JSONPointer.wholeDocument, a: source, b: target)
-        try generator.generateDiffs(pointer: JSONPointer.wholeDocument, source: source, target: target)
-        return generator.patchOperations
+        let comparison = try generator.compare(source: source, target: target)
+        guard !comparison.isUnchanged else { return [] }
+        generator.plan(pointer: .wholeDocument, comparison: comparison)
+        generator.resolveCopies()
+        return generator.operations
     }
 
-    private mutating func computeUnchanged(pointer: JSONPointer, a: JSONElement, b: JSONElement) throws {
-        guard !Self.valuesEqual(a, b) else {
-            unchanged[pointer] = a
-            return
-        }
-
-        switch (a, b) {
-        case (.object(let dictA), .object(let dictB)),
-             (.object(let dictA), .mutableObject(let dictB as NSDictionary)),
-             (.mutableObject(let dictA as NSDictionary), .object(let dictB)),
-             (.mutableObject(let dictA as NSDictionary), .mutableObject(let dictB as NSDictionary)):
-            try computeObjectUnchanged(pointer: pointer, a: dictA, b: dictB)
-
-        case (.array(let arrayA), .array(let arrayB)),
-             (.array(let arrayA), .mutableArray(let arrayB as NSArray)),
-             (.mutableArray(let arrayA as NSArray), .array(let arrayB)),
-             (.mutableArray(let arrayA as NSArray), .mutableArray(let arrayB as NSArray)):
-            try computeArrayUnchanged(pointer: pointer, a: arrayA, b: arrayB)
-
-        default:
-            break
-        }
-    }
-
-    private mutating func computeObjectUnchanged(pointer: JSONPointer,
-                                                 a: NSDictionary,
-                                                 b: NSDictionary) throws {
-        guard let keys = Self.objectKeys(a), let otherKeys = Self.objectKeys(b) else {
-            return
-        }
-
-        for key in keys.intersection(otherKeys) {
-            guard let valueA = a.jsonObject(forKey: key.name as NSString),
-                  let valueB = b.jsonObject(forKey: key.name as NSString) else {
-                continue
-            }
-            try computeUnchanged(pointer: pointer.appended(withComponent: key.name),
-                                 a: try JSONElement(any: valueA),
-                                 b: try JSONElement(any: valueB))
-        }
-    }
-
-    private mutating func computeArrayUnchanged(pointer: JSONPointer,
-                                                a: NSArray,
-                                                b: NSArray) throws {
-        let count = min(a.count, b.count)
-        for index in 0..<count {
-            try computeUnchanged(pointer: pointer.appended(withIndex: index),
-                                 a: try JSONElement(any: a.jsonObject(at: index)),
-                                 b: try JSONElement(any: b.jsonObject(at: index)))
-        }
-    }
-
-    private mutating func generateDiffs(pointer: JSONPointer,
-                                        source: JSONElement,
-                                        target: JSONElement) throws {
-        guard !Self.valuesEqual(source, target) else {
-            return
-        }
-
-        guard JSONElement.equivalentTypes(lhs: source, rhs: target) else {
-            replace(path: pointer, old: source, value: target)
-            return
-        }
-
-        guard source.isContainer else {
-            replace(path: pointer, old: source, value: target)
-            return
-        }
-
+    // Compare each corresponding pair once. Container equality, key sets, and
+    // child conversions are reused by the edit plan rather than recomputed by
+    // separate unchanged-value and diff traversals. Everything lives in this call.
+    private mutating func compare(source: JSONElement, target: JSONElement) throws -> Comparison {
         switch (source, target) {
-        case (.object(let dictA), .object(let dictB)),
-             (.object(let dictA), .mutableObject(let dictB as NSDictionary)),
-             (.mutableObject(let dictA as NSDictionary), .object(let dictB)),
-             (.mutableObject(let dictA as NSDictionary), .mutableObject(let dictB as NSDictionary)):
-            try generateObjectDiffs(pointer: pointer, source: dictA, target: dictB)
-
-        case (.array(let arrayA), .array(let arrayB)),
-             (.array(let arrayA), .mutableArray(let arrayB as NSArray)),
-             (.mutableArray(let arrayA as NSArray), .array(let arrayB)),
-             (.mutableArray(let arrayA as NSArray), .mutableArray(let arrayB as NSArray)):
-            try generateArrayDiffs(pointer: pointer, source: arrayA, target: arrayB)
-
+        case (.object(let a), .object(let b)),
+             (.object(let a), .mutableObject(let b as NSDictionary)),
+             (.mutableObject(let a as NSDictionary), .object(let b)),
+             (.mutableObject(let a as NSDictionary), .mutableObject(let b as NSDictionary)):
+            if a === b { return .unchanged(source) }
+            return try compareObjects(a, b, source: source)
+        case (.array(let a), .array(let b)),
+             (.array(let a), .mutableArray(let b as NSArray)),
+             (.mutableArray(let a as NSArray), .array(let b)),
+             (.mutableArray(let a as NSArray), .mutableArray(let b as NSArray)):
+            if a === b { return .unchanged(source) }
+            return try compareArrays(a, b, source: source)
         default:
-            break
+            return source == target ? .unchanged(source) : .replace(target)
         }
     }
 
-    private mutating func generateObjectDiffs(pointer: JSONPointer,
-                                              source: NSDictionary,
-                                              target: NSDictionary) throws {
-        guard
-            let sourceKeySet = Self.objectKeys(source),
-            let targetKeySet = Self.objectKeys(target) else {
-                return
+    private mutating func compareObjects(_ a: NSDictionary, _ b: NSDictionary,
+                                         source: JSONElement) throws -> Comparison {
+        guard let keysA = Self.objectKeys(a), let keysB = Self.objectKeys(b) else {
+            return .unchanged(source)
         }
+        let common = keysA.intersection(keysB)
+        var equal = keysA == keysB
+        var children: [(ObjectKey, Comparison)] = []
+        children.reserveCapacity(common.count)
+        for key in common {
+            guard let valueA = a.jsonObject(forKey: key.name as NSString),
+                  let valueB = b.jsonObject(forKey: key.name as NSString) else { continue }
+            let child = try compare(source: JSONElement(any: valueA), target: JSONElement(any: valueB))
+            equal = equal && child.isUnchanged
+            children.append((key, child))
+        }
+        if equal { return .unchanged(source) }
 
-        for key in sourceKeySet.subtracting(targetKeySet) {
-            guard let value = source.jsonObject(forKey: key.name as NSString) else { continue }
-            remove(path: pointer.appended(withComponent: key.name),
-                   value: try JSONElement(any: value))
+        var removals: [ObjectKey] = []
+        for key in keysA.subtracting(keysB) {
+            guard let value = a.jsonObject(forKey: key.name as NSString) else { continue }
+            // Preserve validation of removed values accepted by the public wrapper.
+            _ = try JSONElement(any: value)
+            removals.append(key)
         }
-
-        for key in targetKeySet.subtracting(sourceKeySet) {
-            guard let value = target.jsonObject(forKey: key.name as NSString) else { continue }
-            add(path: pointer.appended(withComponent: key.name),
-                value: try JSONElement(any: value))
+        var additions: [(ObjectKey, JSONElement)] = []
+        for key in keysB.subtracting(keysA) {
+            guard let value = b.jsonObject(forKey: key.name as NSString) else { continue }
+            additions.append((key, try JSONElement(any: value)))
         }
-
-        for key in sourceKeySet.intersection(targetKeySet) {
-            guard let sourceValue = source.jsonObject(forKey: key.name as NSString),
-                  let targetValue = target.jsonObject(forKey: key.name as NSString) else {
-                continue
-            }
-            try generateDiffs(pointer: pointer.appended(withComponent: key.name),
-                              source: try JSONElement(any: sourceValue),
-                              target: try JSONElement(any: targetValue))
-        }
+        hasAdditions = hasAdditions || !additions.isEmpty
+        return .object(removals: removals, additions: additions, children: children)
     }
 
-    private mutating func generateArrayDiffs(pointer: JSONPointer,
-                                             source: NSArray,
-                                             target: NSArray) throws {
-        if source.count > target.count {
-            // target is smaller than source, remove end elements.
-            for index in (target.count..<source.count).reversed() {
-                remove(path: pointer.appended(withIndex: index),
-                       value: try JSONElement(any: source.jsonObject(at: index)))
-            }
-        }
-
-        let count = min(source.count, target.count)
+    private mutating func compareArrays(_ a: NSArray, _ b: NSArray,
+                                        source: JSONElement) throws -> Comparison {
+        let count = min(a.count, b.count)
+        var equal = a.count == b.count
+        var children: [Comparison] = []
+        children.reserveCapacity(count)
         for index in 0..<count {
-            try generateDiffs(pointer: pointer.appended(withIndex: index),
-                              source: try JSONElement(any: source.jsonObject(at: index)),
-                              target: try JSONElement(any: target.jsonObject(at: index)))
+            let child = try compare(source: JSONElement(any: a.jsonObject(at: index)),
+                                    target: JSONElement(any: b.jsonObject(at: index)))
+            equal = equal && child.isUnchanged
+            children.append(child)
         }
+        if equal { return .unchanged(source) }
 
-        if source.count < target.count {
-            let appendPointer = pointer.appended(withComponent: "-")
-            for index in source.count..<target.count {
-                add(path: appendPointer,
-                    value: try JSONElement(any: target.jsonObject(at: index)))
+        let removals = count..<a.count
+        for index in removals { _ = try JSONElement(any: a.jsonObject(at: index)) }
+        var additions: [JSONElement] = []
+        if a.count < b.count {
+            additions.reserveCapacity(b.count - a.count)
+            for index in a.count..<b.count {
+                additions.append(try JSONElement(any: b.jsonObject(at: index)))
+            }
+        }
+        hasAdditions = hasAdditions || !additions.isEmpty
+        return .array(removals: removals, additions: additions, children: children)
+    }
+
+    private mutating func plan(pointer: JSONPointer, comparison: Comparison) {
+        switch comparison {
+        case .unchanged(let value):
+            if hasAdditions { unchanged[pointer] = value }
+        case .replace(let value):
+            operations.append(.replace(path: pointer, value: value))
+        case .object(let removals, let additions, let children):
+            // Keep the original execution order: removals, additions, then edits
+            // to common properties. Copy lookup is deferred, not the operation.
+            for key in removals {
+                operations.append(.remove(path: pointer.appended(withComponent: key.name)))
+            }
+            for (key, value) in additions {
+                operations.append(.add(path: pointer.appended(withComponent: key.name), value: value))
+            }
+            for (key, child) in children where hasAdditions || !child.isUnchanged {
+                plan(pointer: pointer.appended(withComponent: key.name), comparison: child)
+            }
+        case .array(let removals, let additions, let children):
+            // Only remove the tail and append; stable source indices do not move.
+            // Array matching or reordered edits must revisit this invariant.
+            for index in removals.reversed() {
+                operations.append(.remove(path: pointer.appended(withIndex: index)))
+            }
+            for (index, child) in children.enumerated() where hasAdditions || !child.isUnchanged {
+                plan(pointer: pointer.appended(withIndex: index), comparison: child)
+            }
+            if !additions.isEmpty {
+                let appendPointer = pointer.appended(withComponent: "-")
+                for value in additions { operations.append(.add(path: appendPointer, value: value)) }
             }
         }
     }
 
-    private mutating func replace(path: JSONPointer, old: JSONElement, value: JSONElement) {
-        operations.append(.replace(path: path, old: old, value: value))
-    }
-
-    private mutating func remove(path: JSONPointer, value: JSONElement) {
-        operations.append(.remove(path: path, value: value))
-    }
-
-    private mutating func add(path: JSONPointer, value: JSONElement) {
-        // Keep earlier removals in place: deferring one until a later move changes
-        // the array indices used by intervening operations and subsequent moves.
-        if let oldPath = findUnchangedValue(value: value) {
-            operations.append(.copy(from: oldPath, path: path, value: value))
-        } else {
-            operations.append(.add(path: path, value: value))
+    private mutating func resolveCopies() {
+        guard hasAdditions else { return }
+        // All maximal unchanged sources, including ones encountered after an
+        // addition, are now known. Replacing an add in place preserves execution
+        // order and does not expose newly added values as copy sources.
+        for index in operations.indices {
+            if case .add(let path, let value) = operations[index],
+               let from = findUnchangedValue(value: value) {
+                operations[index] = .copy(from: from, path: path)
+            }
         }
     }
 
@@ -269,21 +242,6 @@ struct JSONPatchGenerator {
         return nil
     }
 
-}
-
-extension JSONPatch.Operation {
-    fileprivate init(_ value: JSONPatchGenerator.Operation) {
-        switch value {
-        case let .add(path, value):
-            self = .add(path: path, value: value)
-        case let .remove(path, _):
-            self = .remove(path: path)
-        case let .copy(from, path, _):
-            self = .copy(from: from, path: path)
-        case let .replace(path, _, value):
-            self = .replace(path: path, value: value)
-        }
-    }
 }
 
 extension JSONPatch {
