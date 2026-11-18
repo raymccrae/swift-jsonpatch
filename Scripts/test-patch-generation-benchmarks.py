@@ -39,6 +39,20 @@ class CorpusTests(unittest.TestCase):
         self.assertLess({c["id"] for c in support.corpus()}, {c["id"] for c in first})
         self.assertTrue(any("n10000" in case["id"] for case in first))
 
+    def test_copy_lookup_corpus_has_hits_misses_and_prefix_collisions(self):
+        cases = {case["name"]: case for case in support.corpus("full")}
+        for name in ("indexed-hit-string-n64-add24", "single-hit-string-n1000-add1"):
+            source, target = [json.loads(cases[name][key]) for key in ("source", "target")]
+            additions = [value for key, value in target.items() if key not in source]
+            self.assertTrue(additions)
+            self.assertTrue(all(value in source.values() for value in additions))
+        for name in ("indexed-miss-string-n64-add24", "single-miss-string-n1000-add1"):
+            source, target = [json.loads(cases[name][key]) for key in ("source", "target")]
+            self.assertTrue(all(value not in source.values() for key, value in target.items() if key not in source))
+        source = json.loads(cases["indexed-hit-prefix-collision-n64-add24"]["source"])
+        self.assertEqual(len(set(source.values())), 64)
+        self.assertEqual(len({(len(v), v[:32]) for v in source.values()}), 1)
+
 
 class ProcessTests(unittest.TestCase):
     def test_interrupt_reaps_the_worker(self):

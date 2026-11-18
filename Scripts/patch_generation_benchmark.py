@@ -18,7 +18,7 @@ import zlib
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 SCHEMA = 1
-CORPUS_VERSION = 1
+CORPUS_VERSION = 2
 SEED = 1729
 MODES = ("parse", "generate", "serialize", "apply-inplace", "apply-copy", "generate-serialize", "roundtrip")
 FLAGS = ("same-reference", "source-mutable", "target-mutable")
@@ -86,6 +86,44 @@ def corpus(profile="quick"):
     add("encoding", "tiny-value-long-path", {long_path: 1}, {long_path: 1, "added": 1}, True)
     add("encoding", "equivalent-candidates", {f"k{i}": "same" for i in range(100)},
         dict({f"k{i}": "same" for i in range(100)}, added="same"))
+    # Copy lookup must cover hits, misses, bounded-fingerprint collisions, and
+    # index setup. Compare every library revision with this same v2 corpus.
+    for kind in ("string", "array", "object", "numeric-array", "numeric-object", "prefix-collision"):
+        n = 64 if kind in ("string", "prefix-collision") else 32
+        values = []
+        for i in range(n):
+            if kind == "string":
+                value = f"id-{i:04d}-" + "x" * 256
+            elif kind == "array":
+                value = [f"id-{i:04d}", list(range(32)), {"flag": True, "body": "x" * 100}]
+            elif kind == "object":
+                value = {"id": f"id-{i:04d}", "items": list(range(32)), "body": "x" * 100}
+            elif kind == "numeric-array":
+                value = [i] + [0] * 63
+            elif kind == "numeric-object":
+                value = {"number": 9007199254740992 + i, "body": "x" * 100}
+            else:
+                value = "shared-prefix-" * 4 + f"{i:04d}"
+            values.append(value)
+        source = {f"s{i:04d}": value for i, value in enumerate(values)}
+        target = dict(source, **{f"added{i:04d}": values[(i * 17 + 13) % n] for i in range(24)})
+        add("copies", f"indexed-hit-{kind}-n{n}-add24", source, target, kind in ("string", "object"))
+        if kind == "string":
+            add("copies", "indexed-miss-string-n64-add24", source,
+                dict(source, **{f"added{i:04d}": f"unmatched-{i:04d}-" + "y" * 256 for i in range(24)}))
+    one_query = {f"s{i:04d}": f"id-{i:04d}-" + "x" * 64 for i in range(1000)}
+    add("copies", "single-hit-string-n1000-add1", one_query, dict(one_query, added=one_query["s0000"]))
+    add("copies", "single-miss-string-n1000-add1", one_query, dict(one_query, added="unmatched-" + "y" * 64))
+    donors = {"a": "x" * 1024, "~~~~": "x" * 1024, "long/~" * 10: "x" * 1024}
+    donors.update({f"filler{i}": f"other-{i}" for i in range(32)})
+    add("encoding", "shortest-escaped-donor-add24", donors,
+        dict(donors, **{f"added{i}": "x" * 1024 for i in range(24)}))
+    floats = {f"n{i}": 1.23456789 + i for i in range(32)}
+    add("encoding", "floating-literal-cost-n32-add24", floats,
+        dict(floats, **{f"added{i}": floats[f"n{i}"] for i in range(24)}))
+    boundary = {f"a{i}": "x" * i for i in range(1, 10)}
+    add("encoding", "literal-copy-byte-boundary", boundary,
+        dict(boundary, **{f"added{i}": value for i, value in enumerate(boundary.values())}), True)
     add("arrays", "duplicate-object-mixed-n100", [{"id": i % 7, "value": i % 3} for i in range(100)],
         [{"id": -1, "value": 0}] + [{"id": i % 7, "value": i % 3} for i in range(1, 100)])
     add("dense", "root-object-to-array", {"a": 1}, [True, None, "new"], True)

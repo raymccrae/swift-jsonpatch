@@ -239,3 +239,199 @@ struct JSONPatchGeneratorQualityTests {
         }
     }
 }
+
+struct JSONPatchCopyEncodingTests {
+    @Test(arguments: ["0", "true", "false", "null", "[]", "{}", #""aa""#])
+    func tinyLiteralsDoNotUseLongCopyPaths(value: String) throws {
+        let key = String(repeating: "long/~", count: 20)
+        let encodedKey = try GenerationJSON.text(key).json()
+        let source = "{\(encodedKey):\(value)}"
+        let target = "{\(encodedKey):\(value),\"destination/~\":\(value)}"
+        try assertGeneratedPatch(source: source, target: target) { (patch: JSONPatch) throws -> Void in
+            #expect(patch.operations.count == 1)
+            guard case .add(let path, let literal) = try #require(patch.operations.first) else {
+                Issue.record("A tiny literal should beat the long copy source"); return
+            }
+            #expect(path.string == "/destination~1~0")
+            #expect(try GenerationJSON(literal.rawValue) == GenerationJSON.parse(value))
+        }
+    }
+
+    @Test(arguments: [(#""aaa""#, false), (#""aaaa""#, true), (#""a/a""#, true)])
+    func copyMustStrictlyReduceDefaultEncodedSize(value: String, expectCopy: Bool) throws {
+        try assertGeneratedPatch(source: "{\"a\":\(value)}", target: "{\"a\":\(value),\"added\":\(value)}") { (patch: JSONPatch) throws -> Void in
+            let operation = try #require(patch.operations.first)
+            let literal = try JSONElement(any: GenerationJSON.read(value))
+            let add = JSONPatch(operations: [.add(path: try JSONPointer(string: "/added"), value: literal)])
+            let copy = JSONPatch(operations: [.copy(from: try JSONPointer(string: "/a"), path: try JSONPointer(string: "/added"))])
+            #expect((try copy.data().count < add.data().count) == expectCopy)
+            if expectCopy {
+                guard case .copy = operation else { Issue.record("Expected a smaller copy"); return }
+            } else {
+                guard case .add = operation else { Issue.record("Ties should retain the literal"); return }
+            }
+        }
+    }
+
+    @Test(arguments: [1, 20])
+    func shortestStableDonorWinsForLinearAndIndexedLookup(additions: Int) throws {
+        let payload = GenerationJSON.text(String(repeating: "payload", count: 100))
+        var entries: [(String, GenerationJSON)] = [("b", payload), ("a", payload), ("~~~~", payload)]
+        entries += (0..<32).map { ("filler\($0)", .text("different-\($0)")) }
+        let source = try GenerationJSON.dictionary(entries).json()
+        let target = try GenerationJSON.dictionary(entries + (0..<additions).map { ("added\($0)", payload) }).json()
+        try assertGeneratedPatch(source: source, target: target) { (patch: JSONPatch) throws -> Void in
+            #expect(patch.operations.count == additions)
+            for operation in patch.operations {
+                guard case .copy(let from, _) = operation else { Issue.record("Expected useful copies"); continue }
+                #expect(from.string == "/a")
+            }
+        }
+    }
+
+    @Test func escapedByteCostDeterminesShortestSource() throws {
+        let payload = GenerationJSON.text(String(repeating: "x", count: 100))
+        let source = try GenerationJSON.dictionary([("~~", payload), ("aaa", payload)]).json()
+        let target = try GenerationJSON.dictionary([("~~", payload), ("aaa", payload), ("added", payload)]).json()
+        try assertGeneratedPatch(source: source, target: target) { (patch: JSONPatch) throws -> Void in
+            guard case .copy(let from, _) = try #require(patch.operations.first) else { Issue.record("Expected copy"); return }
+            #expect(from.string == "/aaa")
+        }
+    }
+}
+
+struct JSONPatchCopyIndexTests {
+    private func element(_ json: String, mutable: Bool = false) throws -> JSONElement {
+        try JSONElement(any: GenerationJSON.read(json, mutable: mutable))
+    }
+
+    @Test func boundedLiteralSizesMatchFoundation() throws {
+        let controls = String(String.UnicodeScalarView((0..<32).map { Unicode.Scalar($0)! }))
+        let strings = ["", "/~\\\"", controls, "é/e\u{0301}/🚀", "\u{2028}\u{2029}"]
+        var values = try strings.map { try element(GenerationJSON.text($0).json()) }
+        values += try ["null", "true", "false", "0", "-1", "1.0", "1.25", "1e-20", "1e100",
+                       "9007199254740993", "18446744073709551615", "-9223372036854775808",
+                       "[]", "{}", #"{"":null,"a/b~":[true,1,"x"]}"#,
+                       #"{"\u00e9":1,"e\u0301":2}"#].map { try element($0) }
+        values.append(.number(value: NSDecimalNumber(string: "1234567890.123456789")))
+        let typed: [NSNumber] = [NSNumber(value: Int8.min), NSNumber(value: UInt8.max),
+                                 NSNumber(value: Int16.min), NSNumber(value: UInt16.max),
+                                 NSNumber(value: Int32.min), NSNumber(value: UInt32.max),
+                                 NSNumber(value: Int64.min), NSNumber(value: UInt64.max),
+                                 NSNumber(value: Float(0.1)), NSNumber(value: -0.0)]
+        values += typed.map { .number(value: $0) }
+        for value in values {
+            let count = try JSONSerialization.data(withJSONObject: value.rawValue, options: [.fragmentsAllowed]).count
+            for limit in 0...(count + 2) {
+                #expect(JSONPatchGenerator.CopyCost.literalSize(value, limit: limit) == min(count, limit + 1))
+            }
+        }
+    }
+
+    @Test func operationMetadataAndDestinationCancelInSizeComparison() throws {
+        let values = [try element(#"{"v":"/~é\u2028","n":1.25}"#),
+                      JSONElement.number(value: NSNumber(value: 1.23456789)),
+                      JSONElement.number(value: NSNumber(value: Double.greatestFiniteMagnitude)),
+                      JSONElement.number(value: NSDecimalNumber(string: "1234567890.123456789"))]
+        for value in values {
+            let literalBytes = try JSONSerialization.data(withJSONObject: value.rawValue, options: [.fragmentsAllowed]).count
+            for sourcePath in ["", "/", "/a", "/~0~1", "/é\n🚀"] {
+                let from = try JSONPointer(string: sourcePath)
+                let source = JSONPatchGenerator.CopySource(path: from, value: value)
+                let actualPathBytes = try JSONSerialization.data(withJSONObject: from.string, options: [.fragmentsAllowed]).count
+                #expect(source.encodedBytes == actualPathBytes)
+                for destination in ["", "/x", "/~1~0/é\t"] {
+                    let path = try JSONPointer(string: destination)
+                    let add = JSONPatch(operations: [.add(path: path, value: value)])
+                    let copy = JSONPatch(operations: [.copy(from: from, path: path)])
+                    #expect(try copy.data().count - add.data().count == source.encodedBytes - literalBytes)
+                }
+            }
+        }
+    }
+
+    @Test(arguments: [
+        ("1", "1.0"), ("0", "-0.0"),
+        (#"{"a":1,"b":[true,null]}"#, #"{"b":[true,null],"a":1.0}"#),
+        (#"{"\u00e9":1,"e\u0301":2}"#, #"{"e\u0301":2,"\u00e9":1.0}"#)
+    ])
+    func equalValuesHaveCompatibleFingerprints(a: String, b: String) throws {
+        let first = try element(a)
+        let second = try element(b, mutable: true)
+        #expect(try GenerationJSON(first.rawValue) == GenerationJSON(second.rawValue))
+        #expect(JSONPatchGenerator.copyFingerprint(first) == JSONPatchGenerator.copyFingerprint(second))
+    }
+
+    @Test(arguments: [
+        ("true", "1"), ("[1,2]", "[2,1]"),
+        (#"{"n":9007199254740992}"#, #"{"n":9007199254740993}"#),
+        (#"{"":null}"#, "{}"),
+        (#"{"\u00e9":1}"#, #"{"e\u0301":1}"#),
+        (#"{"\u00e9":1,"e\u0301":2}"#, #"{"\u00e9":2,"e\u0301":1}"#)
+    ])
+    func forcedHashCollisionsStillRequireExactEquality(wrong: String, wanted: String) throws {
+        let bad = try element(wrong)
+        let good = try element(wanted)
+        let sources = [JSONPatchGenerator.CopySource(path: try JSONPointer(string: "/a"), value: bad),
+                       JSONPatchGenerator.CopySource(path: try JSONPointer(string: "/b"), value: good)]
+        let index = JSONPatchGenerator.CopyIndex(orderedSources: sources, fingerprint: { _ in 0 })
+        let match = try #require(index.source(for: good, fingerprint: 0))
+        #expect(match.path.string == "/b")
+        #expect(try GenerationJSON(match.value.rawValue) == GenerationJSON(good.rawValue))
+        let single = JSONPatchGenerator.CopyIndex(orderedSources: [sources[0]], fingerprint: { _ in 0 })
+        #expect(single.source(for: good, fingerprint: 0) == nil)
+    }
+
+    @Test func lazyIndexAmortizesMissesAndKeepsCheapHitsLinear() throws {
+        let sources = try (0..<32).map {
+            JSONPatchGenerator.CopySource(path: try JSONPointer(string: "/s\($0)"), value: JSONElement("source-\($0)"))
+        }
+        var misses = JSONPatchGenerator.CopyLookup(sources: sources)
+        for remaining in (1...20).reversed() {
+            #expect(misses.source(for: JSONElement("missing"), remainingQueries: remaining) == nil)
+        }
+        #expect(misses.builtIndex)
+        #expect(misses.linearComparisons < sources.count * 20 / 2)
+        let found = misses.source(for: JSONElement("source-9"), remainingQueries: 1)
+        let match = try #require(found)
+        #expect(match.path.string == "/s9")
+        var hits = JSONPatchGenerator.CopyLookup(sources: sources)
+        for remaining in (1...20).reversed() {
+            #expect(hits.source(for: JSONElement("source-0"), remainingQueries: remaining)?.path.string == "/s0")
+        }
+        #expect(!hits.builtIndex)
+        #expect(hits.linearComparisons <= sources.count)
+    }
+
+    @Test func unselectiveFingerprintsFallBackWithoutChangingResults() throws {
+        let prefix = String(repeating: "x", count: 40)
+        let sources = try (0..<32).map {
+            JSONPatchGenerator.CopySource(path: try JSONPointer(string: "/s\($0)"), value: JSONElement(prefix + String(format: "%02d", $0)))
+        }
+        var lookup = JSONPatchGenerator.CopyLookup(sources: sources)
+        for remaining in (1...20).reversed() {
+            #expect(lookup.source(for: JSONElement(prefix + "zz"), remainingQueries: remaining) == nil)
+        }
+        #expect(lookup.builtIndex)
+        #expect(lookup.linearComparisons <= sources.count * 20)
+        #expect(lookup.source(for: JSONElement(prefix + "17"), remainingQueries: 1)?.path.string == "/s17")
+    }
+
+    @Test func indexedCopiesSurviveTailRemovalAndPatchReuse() throws {
+        let values = (0..<32).map { index in
+            GenerationJSON.dictionary([("id", .text("id-\(index)")), ("body", .text(String(repeating: "x", count: 100)))])
+        }
+        let source = try GenerationJSON.array([.array(values), .array([])]).json()
+        let target = try GenerationJSON.array([.array(Array(values.prefix(31))), .array(Array(values[10...31]))]).json()
+        try assertGeneratedPatch(source: source, target: target) { (patch: JSONPatch) throws -> Void in
+            var copies = 0
+            var additions = 0
+            for operation in patch.operations {
+                if case .copy(let from, _) = operation { copies += 1; #expect(from.string != "/0/31") }
+                if case .add = operation { additions += 1 }
+            }
+            #expect(copies == 21)
+            #expect(additions == 1) // Removed source 31 must be encoded literally.
+        }
+    }
+}

@@ -2,7 +2,7 @@
 
 Build a reproducible benchmark suite before changing the generator. Use it to improve generation time, patch size, application time, and memory use while preserving JSON Patch correctness and the existing public API.
 
-This is an implementation plan. Stage 1's harness and commands are implemented in the [benchmark suite](../Benchmarks/README.md); its local macOS reference and pending cross-platform captures are tracked under [Baselines](../Benchmarks/Baselines/README.md). Stage 2's shared comparison and planning implementation is assessed in the [local macOS report](../Benchmarks/Reports/stage2-macos-arm64-swift6.4.2.md). The feature branch remains local at the user's request. Linux and supported-Xcode acceptance checks for stages 1 and 2 are pending; stages 3–5 remain proposed. Keep each stage reviewable, and retain only improvements supported by measurements.
+This is an implementation plan. Stage 1's harness and commands are implemented in the [benchmark suite](../Benchmarks/README.md); its local macOS reference and pending cross-platform captures are tracked under [Baselines](../Benchmarks/Baselines/README.md). Stage 2's shared planning is assessed in its [macOS report](../Benchmarks/Reports/stage2-macos-arm64-swift6.4.2.md), and stage 3's copy lookup and encoding choices in the [stage 3 assessment](../Benchmarks/Reports/stage3-macos-arm64-swift6.4.2.md). The feature branch remains local at the user's request. Linux and supported-Xcode acceptance checks for stages 1–3 are pending; stages 4–5 remain proposed. Keep each stage reviewable, and retain only improvements supported by measurements.
 
 Use `feature/patch-generation` for this proposal, based on `develop`. Create subsequent `feature/<topic>` branches from `develop` for selected implementation stages. Merge selected work into `develop`; reserve `master` for released versions. Follow the [repository workflow](../AGENTS.md).
 
@@ -10,7 +10,7 @@ Use `feature/patch-generation` for this proposal, based on `develop`. Create sub
 
 The reference implementation is v2.0.0, commit `7ccc425d3e58da374c9af600074c6ff223089fe8`.
 
-The v2.0.0 reference performs an unchanged-value traversal followed by a difference traversal. Both use recursive equality checks. Each addition searches unchanged candidates for a possible `copy`. Arrays are compared by position, with removals and additions at the end. The [generator](../Sources/JSONPatch/JSONPatchGenerator.swift) now contains the locally assessed stage 2 implementation described below.
+The v2.0.0 reference performs an unchanged-value traversal followed by a difference traversal. Both use recursive equality checks. Each addition searches unchanged candidates for a possible `copy`. Arrays are compared by position, with removals and additions at the end. The [generator](../Sources/JSONPatch/JSONPatchGenerator.swift) now contains the locally assessed stages 2 and 3 described below.
 
 The [generator tests](../Tests/JSONPatchTests/JSONPatchGeneratorTests.swift) cover large documents, array transfers, Unicode property identity, and copy candidates. The former `testPerformanceGenerate` is named `testGenerateLargeFixtureSmoke`; timing lives in the separate benchmark executable. Before stage 2, [focused quality expectations and seeded generated-document checks](PatchGenerationTests.md) were added to the ordinary test suite without altering the generator. These tests protect focused edits, useful copies, sequential source validity, input preservation, and reuse without requiring one ordering for independent object operations.
 
@@ -126,6 +126,8 @@ Retain the pre-stage-2 tests for copy sources discovered before and after an add
 **Stage completion:** measured traversal savings exceed baseline noise on the target cases, and the report accounts for small-document overhead, memory, output sizes, and application cost. Defer representation changes that lack a measured benefit.
 
 ## 3. Improve copy lookup and encoding choices
+
+**Local implementation:** stage 3 adds work-triggered indexing with bounded structural filters, exact collision checks, stable shortest-source selection, and a strict default-serialized-size policy. Small searches stay linear, unselective buckets fall back, and integer/floating sizing work is limited or reused within the call. The [assessment](../Benchmarks/Reports/stage3-macos-arm64-swift6.4.2.md) includes corpus v2, measured gains and accepted regressions, memory and application costs, and an investigation of hash-order-sensitive object comparisons. The implementation is retained on `feature/patch-generation`; cross-platform acceptance remains pending.
 
 Measure candidate count, additions, hit rate, value type, and value size in diagnostic runs. Compare linear search with a lazily built index. Include index construction in generation time. Use a small candidate set without an index when that measures better.
 

@@ -88,6 +88,8 @@ Gzip uses level 9 and `mtime=0`; Python and zlib versions are recorded. Sizes ar
 
 The quick corpus covers unchanged documents, sparse updates, object churn, copy hits/misses, encoding costs, array edits, dense changes, mutable containers, semantic boundaries, and the repository's existing large fixture. Full adds 10,000-entry documents, deeper nesting, more edit types, and more reusable value types. Case IDs include a corpus version, parameters, and a fixed seed. Deterministic arithmetic and ASCII JSON encoding avoid platform-dependent fixture generation. Semantic literals are stored in [Fixtures/semantic.json](Fixtures/semantic.json).
 
+Corpus version 2 has 21 quick cases and 71 full cases. It adds indexed string/container hits, misses, one-query searches, deliberately coarse prefix/numeric cases, floating-point sizing, shortest escaped sources, and literal/copy byte boundaries. The original cases retain their input bytes, but IDs and the harness hash change. Compare both library revisions with the same harness; check out the stage 2 commit to reproduce the exact version 1 reports.
+
 Before and after timing, an independent comparator checks round trips, source/target preservation, and patch reuse. Its equality is implemented without the generator's helpers: Unicode scalar keys and strings, Boolean/number separation, and decimal comparisons without converting integers through Double. The corpus bounds numbers to values representable by Foundation and Decimal; arbitrary-precision numeric JSON is outside this harness's scope. Comparator regression tests explicitly cover neighboring large integers and composed/decomposed keys. Each mode must succeed; a failure is never interpreted as a fast measurement.
 
 Run the harness tests and the full correctness matrix with:
@@ -103,6 +105,8 @@ The benchmark workflow tests the harness on Swift 6.0.3 and 6.2 Linux, and Xcode
 Curated reference summaries and their reproduction details belong in [Baselines](Baselines/README.md). Retain raw reports as artifacts. A reference run is an observation on its recorded machine, not a portable performance promise.
 
 The [stage 2 macOS assessment](Reports/stage2-macos-arm64-swift6.4.2.md) compares shared traversal and planning against v2.0.0, including the measured tradeoffs and reproduction commands. Its compact comparison data lives beside the report; raw samples stay under the ignored results directory.
+
+The [stage 3 assessment](Reports/stage3-macos-arm64-swift6.4.2.md) measures copy indexing and size-aware choices against stage 2 and the release. It records small-case regressions and object-equality order sensitivity as well as improvements. For untimed source/query counts, value sizes, hit rates, and equality work, run `python3 Scripts/diagnose-patch-generation.py`. That tool compiles a temporary instrumented copy and leaves the checkout unchanged; it fails explicitly if its stage 3 instrumentation markers no longer match. Keep diagnostic runs separate from timing runs.
 
 Export a compact reference summary after a successful three-pair release-versus-release run:
 

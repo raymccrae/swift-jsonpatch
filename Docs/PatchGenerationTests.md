@@ -30,6 +30,8 @@ The [focused quality tests](../Tests/JSONPatchTests/JSONPatchGeneratorQualityTes
 
 Exact operation expectations apply to deliberately simple cases. These are regression expectations, not a public promise of a globally minimal patch. Byte envelopes protect small patches and useful copies without fixing serialized field order. They are not timing thresholds.
 
+Stage 3 adds default-encoded-size expectations: tiny literals beat long sources, ties retain literals, and equivalent sources use the shortest quoted/escaped path with a Unicode-scalar tie-break. The size model is checked against Foundation for controls, Unicode, typed integer limits, floating-point values, and decimals, both as fragments and in operations. Index tests force collisions, check equal numeric/Unicode representations, exercise lazy setup and unselective fallback, and reuse indexed patches after array-tail removals. They do not require fingerprints to differ for unequal values.
+
 The tests do not require the generator's inefficient positional output for prepends, middle insertions, or reordering. Those cases receive correctness coverage here and measurements in the [benchmark suite](../Benchmarks/README.md). Add improved-quality expectations alongside the later array algorithm. Likewise, choosing between tiny literals and long `copy` paths belongs to the later encoding policy.
 
 Stage 2 adds regressions for an unchanged copy source beneath a changing ancestor, encountered before or after the addition, and for the identity shortcut on shared mutable subtrees. These tests pass against both the original release and the stage 2 implementation; they protect existing behavior rather than introduce a different copy policy.
