@@ -38,9 +38,11 @@ The array suite exhaustively round-trips all 225 pairs of binary arrays of lengt
 
 Stage 2 adds regressions for an unchanged copy source beneath a changing ancestor, encountered before or after the addition, and for the identity shortcut on shared mutable subtrees. These tests pass against both the original release and the stage 2 implementation; they protect existing behavior rather than introduce a different copy policy.
 
+Stage 5 checks that complete direct replacements coalesce into one container replacement, including nested containers and both generation initializers. Partial changes and single-child chains retain focused paths. Escaped/Unicode keys and large repeated target containers verify raw-byte savings against explicitly constructed detailed patches. External unchanged donors remain available after a neighboring container is replaced. The optional `preferSmallerPatch` policy receives separate tests for partial changes, retained sparse edits/copies, strict size ties, exact operation costs, depth/count/byte limits, and compatibility of the original initializer references. These expectations describe the selected policies; they do not fix every operation sequence or promise global size optimality.
+
 ## Seeded generated documents
 
-The [generated-document suite](../Tests/JSONPatchTests/JSONPatchGeneratorGeneratedTests.swift) defines corpus version 1: four fixed seeds (`0`, `1`, `1729`, and `0xDEADBEEFCAFEBABE`) and 32 case indices per seed. Its 128 document pairs exercise 512 source/target mutability combinations. SplitMix64 with wrapping integer arithmetic and sorted Unicode scalar keys makes the document trees reproducible without Swift's randomized hashing.
+The [generated-document suite](../Tests/JSONPatchTests/JSONPatchGeneratorGeneratedTests.swift) defines corpus version 1: four fixed seeds (`0`, `1`, `1729`, and `0xDEADBEEFCAFEBABE`) and 32 case indices per seed. Its 128 document pairs exercise 512 source/target mutability combinations under each of the default and `preferSmallerPatch` policies, for 1,024 policy/mutability checks. SplitMix64 with wrapping integer arithmetic and sorted Unicode scalar keys makes the document trees reproducible without Swift's randomized hashing.
 
 Each case index modulo eight selects a family:
 

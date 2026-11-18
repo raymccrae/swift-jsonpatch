@@ -34,6 +34,14 @@ public class JSONPatch: Codable {
     /// The mimetype for json-patch
     public static let mimetype = "application/json-patch+json"
 
+    /// Optional tradeoffs when generating a patch.
+    public enum GenerationOption: Equatable, Sendable {
+        /// Spend additional bounded estimation work to prefer fewer default
+        /// compact JSON bytes. May replace the whole document, changing operation
+        /// granularity. Does not minimize gzip size or guarantee a minimal patch.
+        case preferSmallerPatch
+    }
+
     /// Options given to the patch process.
     public enum ApplyOption: Equatable, Sendable {
         /// By default the patch will be applied directly on to the json object

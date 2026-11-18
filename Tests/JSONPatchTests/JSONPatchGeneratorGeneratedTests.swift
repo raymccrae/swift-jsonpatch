@@ -17,13 +17,15 @@ struct JSONPatchGeneratorGeneratedTests {
         // rather than letting generation and comparison share a parsing mistake.
         #expect(try GenerationJSON.parse(sourceJSON) == source, Comment(rawValue: context))
         #expect(try GenerationJSON.parse(targetJSON) == target, Comment(rawValue: context))
-        try assertGeneratedPatch(source: sourceJSON, target: targetJSON, context: context) { patch in
-            if source == target { #expect(patch.operations.isEmpty, Comment(rawValue: context)) }
-            if caseIndex % 8 == 3 {
-                let expected = try GenerationJSON.parse("[{\"op\":\"replace\",\"path\":\"/nested/a~1b/~0\",\"value\":\(caseIndex + 1_000)}]")
-                #expect(try GenerationJSON(JSONSerialization.jsonObject(with: patch.data())) == expected,
-                        Comment(rawValue: context))
-                #expect(try patch.data().count < 128, Comment(rawValue: context))
+        for options: [JSONPatch.GenerationOption] in [[], [.preferSmallerPatch]] {
+            try assertGeneratedPatch(source: sourceJSON, target: targetJSON, context: context, generationOptions: options) { patch in
+                if source == target { #expect(patch.operations.isEmpty, Comment(rawValue: context)) }
+                if caseIndex % 8 == 3 {
+                    let expected = try GenerationJSON.parse("[{\"op\":\"replace\",\"path\":\"/nested/a~1b/~0\",\"value\":\(caseIndex + 1_000)}]")
+                    #expect(try GenerationJSON(JSONSerialization.jsonObject(with: patch.data())) == expected,
+                            Comment(rawValue: context))
+                    #expect(try patch.data().count < 128, Comment(rawValue: context))
+                }
             }
         }
     }

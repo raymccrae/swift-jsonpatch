@@ -18,7 +18,7 @@ import zlib
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 SCHEMA = 1
-CORPUS_VERSION = 3
+CORPUS_VERSION = 4
 SEED = 1729
 MODES = ("parse", "generate", "serialize", "apply-inplace", "apply-copy", "generate-serialize", "roundtrip")
 FLAGS = ("same-reference", "source-mutable", "target-mutable")
@@ -91,6 +91,25 @@ def corpus(profile="quick"):
     for _ in range(64):
         first, second = [first], [second]
     add("arrays", "deep-chain-64", first, second, True)
+    for n in (10, 31, 32, 1000, 10000):
+        source = {f"k{i:05d}": i for i in range(n)}
+        add("dense", f"complete-object-n{n}", source,
+            {key: value + n for key, value in source.items()}, n in (32, 1000))
+    for percentage in (10, 50, 90, 99):
+        source = {f"k{i:05d}": i for i in range(1000)}
+        target = {key: value + 1000 if value < percentage * 10 else value for key, value in source.items()}
+        add("dense", f"object-n1000-density{percentage}", source, target, percentage == 90)
+    source = {f"k{i:02d}": f"old-{i}-" + "x" * 4096 for i in range(64)}
+    target = {key: f"new-{i}-" + "y" * 4096 for i, key in enumerate(source)}
+    add("dense", "complete-large-strings-n64", source, target, True)
+    source = list(range(32))
+    target = [{"items": list(range(64)), "body": "x" * 1024} for _ in source]
+    add("dense", "complete-repeated-containers-n32", source, target, True)
+    source = {"stable": "x" * 1000000, "a": 1, "b": 2}
+    add("sparse", "two-leaves-beside-large-payload", source, dict(source, a=3, b=4), True)
+    source = {"stable": "x" * 100000, "nested": list(range(64))}
+    add("dense", "nested-reversal-beside-payload", source,
+        dict(source, nested=source["nested"][::-1]), True)
     for depth in (8, 64):
         first, second = {"value": 1}, {"value": 2}
         for _ in range(depth):

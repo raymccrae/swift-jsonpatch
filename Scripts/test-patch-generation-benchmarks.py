@@ -65,6 +65,18 @@ class CorpusTests(unittest.TestCase):
         for name in ("unrelated-n1000", "object-prepend-n1000", "donor-invalidated-by-prepend", "safe-prefix-donor-insert"):
             self.assertIn(name, cases)
 
+    def test_adaptive_corpus_separates_complete_partial_and_payload_changes(self):
+        cases = {case["name"]: case for case in support.corpus("full")}
+        for percentage in (10, 50, 90, 99):
+            a, b = [json.loads(cases[f"object-n1000-density{percentage}"][key]) for key in ("source", "target")]
+            self.assertEqual(sum(a[key] != b[key] for key in a), percentage * 10)
+        a, b = [json.loads(cases["complete-object-n32"][key]) for key in ("source", "target")]
+        self.assertEqual(set(a), set(b))
+        self.assertTrue(all(a[key] != b[key] for key in a))
+        a, b = [json.loads(cases["two-leaves-beside-large-payload"][key]) for key in ("source", "target")]
+        self.assertEqual(a["stable"], b["stable"])
+        self.assertEqual(len(a["stable"]), 1000000)
+
 
 class ProcessTests(unittest.TestCase):
     def test_interrupt_reaps_the_worker(self):

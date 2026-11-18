@@ -436,6 +436,165 @@ struct JSONPatchCopyIndexTests {
     }
 }
 
+struct JSONPatchAdaptiveGenerationTests {
+    @Test func smallerPatchOptionCompactsPartialChanges() throws {
+        let source = "{" + (0..<100).map { "\"k\($0)\":\($0)" }.joined(separator: ",") + "}"
+        let target = "{" + (0..<100).map { "\"k\($0)\":\($0 < 90 ? $0 + 100 : $0)" }.joined(separator: ",") + "}"
+        let detailed = try JSONPatch(source: Data(source.utf8), target: Data(target.utf8))
+        #expect(detailed.operations.count == 90)
+        try assertGeneratedPatch(source: source, target: target, generationOptions: [.preferSmallerPatch]) { (patch: JSONPatch) throws -> Void in
+            #expect(patch.operations.count == 1)
+            #expect(try patch.data().count < detailed.data().count)
+        }
+    }
+
+    @Test func smallerPatchOptionKeepsSparseEditsAndCompactCopies() throws {
+        let body = try GenerationJSON.text(String(repeating: "payload", count: 1_000)).json()
+        try assertGeneratedPatch(source: "{\"a\":0,\"b\":0,\"stable\":\(body)}",
+                                 target: "{\"a\":1,\"b\":1,\"stable\":\(body)}",
+                                 generationOptions: [.preferSmallerPatch]) { patch in
+            #expect(patch.operations.count == 2)
+        }
+        let copies = (0..<30).map { "\"added\($0)\":\(body)" }.joined(separator: ",")
+        try assertGeneratedPatch(source: "{\"stable\":\(body)}",
+                                 target: "{\"stable\":\(body),\(copies)}",
+                                 generationOptions: [.preferSmallerPatch]) { patch in
+            #expect(patch.operations.count == 30)
+            #expect(patch.operations.allSatisfy { if case .copy = $0 { return true }; return false })
+        }
+    }
+
+    @Test func sizeTiesRetainDetailedOperations() throws {
+        var foundTie = false
+        for count in 0...128 {
+            let body = String(repeating: "x", count: count)
+            let source = Data("{\"a\":0,\"b\":0,\"stable\":\"\(body)\"}".utf8)
+            let target = Data("{\"a\":1,\"b\":1,\"stable\":\"\(body)\"}".utf8)
+            let detailed = try JSONPatch(source: source, target: target)
+            let element = try JSONSerialization.jsonElement(with: target, options: [])
+            let replacement = JSONPatch(operations: [.replace(path: .wholeDocument, value: element)])
+            if try detailed.data().count == replacement.data().count {
+                foundTie = true
+                let selected = try JSONPatch(source: source, target: target, generationOptions: [.preferSmallerPatch])
+                #expect(selected.operations.count == detailed.operations.count)
+                break
+            }
+        }
+        #expect(foundTie)
+    }
+
+    @Test func operationCostMatchesFoundationAndHonorsLimits() throws {
+        let path = try JSONPointer(string: "/a~1b/~0/\u{e9}")
+        let value = try JSONElement(any: GenerationJSON.read(#"[true,9007199254740993,1.2345,"\n/🚀"]"#))
+        let operations: [JSONPatch.Operation] = [
+            .add(path: path, value: value), .replace(path: path, value: value),
+            .remove(path: path), .copy(from: .wholeDocument, path: path),
+            .move(from: path, path: .wholeDocument), .test(path: path, value: value)
+        ]
+        for operation in operations {
+            let expected = try JSONPatch(operations: [operation]).data().count - 2
+            #expect(JSONPatchGenerator.ReplacementCost.operationSize(operation, limit: expected) == expected)
+            #expect(JSONPatchGenerator.ReplacementCost.operationSize(operation, limit: expected - 1) == nil)
+        }
+        var deep: JSONElement = .null
+        for _ in 0..<17 { deep = .array(value: NSArray(object: deep.rawValue)) }
+        #expect(JSONPatchGenerator.CopyCost.literalSize(deep, limit: 65_536, remainingDepth: 16) == nil)
+        let deepPath = try JSONPointer(string: String(repeating: "/a", count: 33))
+        #expect(JSONPatchGenerator.ReplacementCost.operationSize(.remove(path: deepPath), limit: 65_536) == nil)
+        let tooMany = Array(repeating: JSONPatch.Operation.remove(path: path), count: 2_049)
+        #expect(!JSONPatchGenerator.ReplacementCost.prefersReplacement(tooMany, target: .null))
+        let large = JSONElement.string(value: String(repeating: "x", count: 100) as NSString)
+        let tooManyBytes = Array(repeating: JSONPatch.Operation.replace(path: path, value: large), count: 1_000)
+        #expect(!JSONPatchGenerator.ReplacementCost.prefersReplacement(tooManyBytes, target: .null))
+    }
+
+    @Test func existingInitializerReferencesAndEmptyOptionsRemainCompatible() throws {
+        let old: (JSONElement, JSONElement) throws -> JSONPatch = JSONPatch.init(source:target:)
+        let oldData: (Data, Data, JSONSerialization.ReadingOptions) throws -> JSONPatch = JSONPatch.init(source:target:options:)
+        let source = try JSONElement(any: GenerationJSON.read("[0,1,2]"))
+        let target = try JSONElement(any: GenerationJSON.read("[3,4,2]"))
+        let original = try old(source, target)
+        let empty = try JSONPatch(source: source, target: target, generationOptions: [])
+        #expect(try original.data().count == empty.data().count)
+        #expect(try oldData(Data("[0,1,2]".utf8), Data("[3,4,2]".utf8), []).operations.count == 2)
+    }
+
+    @Test(arguments: [2, 10, 32, 1_000])
+    func completeArrayChangesUseOneReplacement(count: Int) throws {
+        let values = (0..<count).map(String.init)
+        try assertGeneratedPatch(source: "[" + values.joined(separator: ",") + "]",
+                                 target: "[" + (count..<(2 * count)).map(String.init).joined(separator: ",") + "]") { patch in
+            #expect(patch.operations.count == 1)
+            if case .replace(let path, _) = patch.operations.first { #expect(path == .wholeDocument) }
+            else { Issue.record("Expected a container replacement") }
+        }
+    }
+
+    @Test func completeObjectChangesUseOneNestedReplacement() throws {
+        let source = "{" + (0..<32).map { "\"k\($0)\":\($0)" }.joined(separator: ",") + "}"
+        let target = "{" + (0..<32).map { "\"k\($0)\":\($0 + 100)" }.joined(separator: ",") + "}"
+        try assertGeneratedPatch(source: "{\"nested\":\(source),\"stable\":true}",
+                                 target: "{\"nested\":\(target),\"stable\":true}") { patch in
+            #expect(patch.operations.count == 1)
+            if case .replace(let path, _) = patch.operations.first { #expect(path.string == "/nested") }
+            else { Issue.record("Expected a nested container replacement") }
+        }
+    }
+
+    @Test func partialChangesAndSingletonsKeepFocusedEdits() throws {
+        for count in [31, 32] {
+            let source = "{" + (0..<count).map { "\"k\($0)\":\($0)" }.joined(separator: ",") + "}"
+            let target = "{" + (0..<count).map { "\"k\($0)\":\($0 == 0 ? 0 : $0 + 100)" }.joined(separator: ",") + "}"
+            try assertGeneratedPatch(source: source, target: target) { patch in
+                #expect(patch.operations.count == count - 1)
+            }
+        }
+        try assertGeneratedPatch(source: "{\"nested\":[1]}", target: "{\"nested\":[2]}") { patch in
+            #expect(patch.operations.count == 1)
+            if case .replace(let path, _) = patch.operations.first { #expect(path.string == "/nested/0") }
+            else { Issue.record("Expected a leaf replacement") }
+        }
+    }
+
+    @Test func replacementByteSavingsIncludeEscapedKeysAndNestedValues() throws {
+        let keys = (0..<32).map { "\($0)/~\"\n\u{e9}e\u{301}" }
+        let source = GenerationJSON.dictionary(keys.enumerated().map { ($0.element, .number(Decimal($0.offset))) })
+        let payload = GenerationJSON.dictionary([("items", .array([.boolean(true), .text(String(repeating: "x", count: 1024))]))])
+        let target = GenerationJSON.dictionary(keys.map { ($0, payload) })
+        let expected = try #require(GenerationJSON.read(target.json()) as? NSDictionary)
+        let detailed = try JSONPatch(operations: keys.map { key in
+            let path = try JSONPointer(string: "/nested/" + JSONPointer.escape(key))
+            let raw = try #require(expected.jsonObject(forKey: key as NSString))
+            return .replace(path: path, value: try JSONElement(any: raw))
+        })
+        try assertGeneratedPatch(source: "{\"nested\":\(source.json())}",
+                                 target: "{\"nested\":\(target.json())}") { (patch: JSONPatch) throws -> Void in
+            #expect(patch.operations.count == 1)
+            #expect(try patch.data().count < detailed.data().count)
+        }
+    }
+
+    @Test func containerReplacementDoesNotRemoveExternalCopySources() throws {
+        let body = try GenerationJSON.text(String(repeating: "payload", count: 1_000)).json()
+        let source = "[" + (0..<32).map(String.init).joined(separator: ",") + "]"
+        let target = "[" + (100..<132).map(String.init).joined(separator: ",") + "]"
+        try assertGeneratedPatch(source: "[\(source),\(body),[]]",
+                                 target: "[\(target),\(body),[\(body)]]") { patch in
+            #expect(patch.operations.count == 2)
+            #expect(patch.operations.contains { if case .copy(let from, _) = $0 { return from.string == "/1" }; return false })
+        }
+    }
+
+    @Test func dataInitializerUsesTheSameAdaptivePolicy() throws {
+        let source = "[0,1]"
+        let target = "[2,3]"
+        let patch = try JSONPatch(source: Data(source.utf8), target: Data(target.utf8), options: [.mutableContainers])
+        #expect(patch.operations.count == 1)
+        let result = try JSONPatch(data: patch.data()).apply(to: GenerationJSON.read(source))
+        #expect(try GenerationJSON(result) == GenerationJSON.parse(target))
+    }
+}
+
 struct JSONPatchArrayGenerationTests {
     @Test(arguments: [
         ("[1,2,3]", "[0,1,2,3]", #"[{"op":"add","path":"/0","value":0}]"#),

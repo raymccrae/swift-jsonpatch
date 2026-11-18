@@ -90,6 +90,11 @@ struct JSONPatchGenerator {
             if case .unchanged = self { return true }
             return false
         }
+
+        var isReplacement: Bool {
+            if case .replace = self { return true }
+            return false
+        }
     }
 
     // Extra sequence-search work is bounded independently of the positional
@@ -470,10 +475,12 @@ struct JSONPatchGenerator {
         // Saturate at limit + 1: proving a large literal exceeds a short source
         // path need not serialize or walk the whole value. nil keeps the literal
         // when a Foundation value cannot be measured safely.
-        static func literalSize(_ value: JSONElement, limit: Int) -> Int? {
+        static func literalSize(_ value: JSONElement, limit: Int, remainingDepth: Int = Int.max) -> Int? {
             switch value {
             case .null: return min(4, limit + 1)
-            case .string(let string): return stringSize(string as String, limit: limit)
+            case .string(let string):
+                if remainingDepth != Int.max && (limit < 2 || string.length > limit - 2) { return limit + 1 }
+                return stringSize(string as String, limit: limit)
             case .number(let number):
                 let count: Int
                 if number.isBoolean { count = number.boolValue ? 4 : 5 }
@@ -488,17 +495,29 @@ struct JSONPatchGenerator {
                 }
                 return min(count, limit + 1)
             case .array(let array), .mutableArray(let array as NSArray):
+                guard remainingDepth > 0 else { return nil }
                 if limit < 2 || (array.count > 0 && array.count > (limit - 1) / 2) { return limit + 1 }
                 var count = 2 + max(0, array.count - 1)
                 for index in 0..<array.count {
                     guard let item = try? JSONElement(any: array.jsonObject(at: index)),
-                          let bytes = literalSize(item, limit: limit - count) else { return nil }
+                          let bytes = literalSize(item, limit: limit - count,
+                                                  remainingDepth: remainingDepth == Int.max ? Int.max : remainingDepth - 1) else { return nil }
                     count += bytes
                     if count > limit { return limit + 1 }
                 }
                 return count
             case .object(let object), .mutableObject(let object as NSDictionary):
+                guard remainingDepth > 0 else { return nil }
                 if limit < 2 || (object.count > 0 && object.count > (limit - 1) / 5) { return limit + 1 }
+                if remainingDepth != Int.max {
+                    // Bound key bridging before forming a Swift String array.
+                    var minimum = 2
+                    for raw in object.allKeys {
+                        guard let key = raw as? NSString else { return nil }
+                        if key.length > limit - minimum { return limit + 1 }
+                        minimum += key.length
+                    }
+                }
                 guard let keys = object.allKeys as? [String] else { return nil }
                 var count = 2 + max(0, object.count - 1)
                 for key in keys {
@@ -506,12 +525,74 @@ struct JSONPatchGenerator {
                     if count > limit { return limit + 1 }
                     guard let raw = object.jsonObject(forKey: key as NSString),
                           let item = try? JSONElement(any: raw),
-                          let bytes = literalSize(item, limit: limit - count) else { return nil }
+                          let bytes = literalSize(item, limit: limit - count,
+                                                  remainingDepth: remainingDepth == Int.max ? Int.max : remainingDepth - 1) else { return nil }
                     count += bytes
                     if count > limit { return limit + 1 }
                 }
                 return count
             }
+        }
+    }
+
+    // Optional whole-document comparison, after copies and structural adaptation.
+    // The encoded-byte ceiling bounds traversed literals; depth and operation
+    // ceilings also bound shape overhead. Unknown estimates retain the patch.
+    enum ReplacementCost {
+        static let maximumOperations = 2_048
+        static let maximumBytes = 65_536
+        static let maximumDepth = 16
+        static let maximumPointerDepth = 32
+
+        private static func pointerSize(_ pointer: JSONPointer, limit: Int) -> Int? {
+            guard pointer.count <= maximumPointerDepth, limit >= 2 else { return nil }
+            var minimum = 2
+            for token in pointer {
+                let bytes = token.utf8.count
+                guard bytes <= limit - minimum else { return nil }
+                minimum += bytes
+            }
+            let bytes = CopyCost.stringSize(pointer.string, limit: limit)
+            return bytes <= limit ? bytes : nil
+        }
+
+        static func operationSize(_ operation: JSONPatch.Operation, limit: Int) -> Int? {
+            let path: JSONPointer
+            let from: JSONPointer?
+            let value: JSONElement?
+            var bytes: Int
+            switch operation {
+            case .replace(let p, let v): path = p; value = v; from = nil; bytes = 33
+            case .add(let p, let v): path = p; value = v; from = nil; bytes = 29
+            case .remove(let p): path = p; value = nil; from = nil; bytes = 23
+            case .copy(let f, let p), .move(let f, let p): path = p; from = f; value = nil; bytes = 29
+            case .test(let p, let v): path = p; value = v; from = nil; bytes = 30
+            }
+            guard bytes <= limit, let pathBytes = pointerSize(path, limit: limit - bytes) else { return nil }
+            bytes += pathBytes
+            if let from {
+                guard let size = pointerSize(from, limit: limit - bytes) else { return nil }
+                bytes += size
+            }
+            if let value {
+                guard let size = CopyCost.literalSize(value, limit: limit - bytes, remainingDepth: maximumDepth) else { return nil }
+                bytes += size
+            }
+            return bytes <= limit ? bytes : nil
+        }
+
+        static func prefersReplacement(_ operations: [JSONPatch.Operation], target: JSONElement) -> Bool {
+            guard operations.count >= 2, operations.count <= maximumOperations else { return false }
+            var old = 1 // array brackets and the first operation's missing comma
+            for operation in operations {
+                guard old < maximumBytes,
+                      let size = operationSize(operation, limit: maximumBytes - old - 1) else { return false }
+                old += size + 1
+            }
+            // [] + replace metadata + quoted empty path = 37 bytes.
+            guard old > 37,
+                  let size = CopyCost.literalSize(target, limit: old - 38, remainingDepth: maximumDepth) else { return false }
+            return size <= old - 38 // Strictly smaller; ties keep the detailed patch.
         }
     }
 
@@ -521,13 +602,44 @@ struct JSONPatchGenerator {
     private var numberSizes: [ObjectIdentifier: Int] = [:]
     private var operations: [JSONPatch.Operation] = []
 
-    static func generatePatch(source: JSONElement, target: JSONElement) throws -> [JSONPatch.Operation] {
+    static func generatePatch(source: JSONElement, target: JSONElement, preferSmallerPatch: Bool = false) throws -> [JSONPatch.Operation] {
         var generator = JSONPatchGenerator()
         let comparison = try generator.compare(source: source, target: target)
         guard !comparison.isUnchanged else { return [] }
         try generator.plan(pointer: .wholeDocument, comparison: comparison)
         generator.resolveCopies()
+        if preferSmallerPatch && ReplacementCost.prefersReplacement(generator.operations, target: target) {
+            return [.replace(path: .wholeDocument, value: target)]
+        }
         return generator.operations
+    }
+
+    // A complete set of direct replacements contains every target value once,
+    // just as a container replacement does. Values cancel from the size choice:
+    // only JSON syntax, operation metadata, and repeated paths differ. There are
+    // no planned unchanged descendants to lose as copy sources and no additions
+    // whose literals could become smaller copies. Partial edits stay granular.
+    static let minimumReplacementChildren = 2
+
+    private static func adapt(_ comparison: Comparison, target: JSONElement) -> Comparison {
+        switch comparison {
+        case .object(let removals, let additions, let children):
+            if removals.isEmpty && additions.isEmpty && children.count >= minimumReplacementChildren &&
+                children.allSatisfy({ $0.1.isReplacement }) {
+                return .replace(target)
+            }
+        case .array(let array):
+            if array.parts.count >= minimumReplacementChildren && array.parts.allSatisfy({ part in
+                if case .change(let source, let target, let child) = part {
+                    return source == target && child.isReplacement
+                }
+                return false
+            }) {
+                return .replace(target)
+            }
+        default: break
+        }
+        return comparison
     }
 
     // Compare each corresponding pair once. Container equality, key sets, and
@@ -540,13 +652,13 @@ struct JSONPatchGenerator {
              (.mutableObject(let a as NSDictionary), .object(let b)),
              (.mutableObject(let a as NSDictionary), .mutableObject(let b as NSDictionary)):
             if a === b { return .unchanged(source) }
-            return try compareObjects(a, b, source: source, matchArrays: matchArrays)
+            return try Self.adapt(compareObjects(a, b, source: source, matchArrays: matchArrays), target: target)
         case (.array(let a), .array(let b)),
              (.array(let a), .mutableArray(let b as NSArray)),
              (.mutableArray(let a as NSArray), .array(let b)),
              (.mutableArray(let a as NSArray), .mutableArray(let b as NSArray)):
             if a === b { return .unchanged(source) }
-            return try compareArrays(a, b, source: source, matchArrays: matchArrays)
+            return try Self.adapt(compareArrays(a, b, source: source, matchArrays: matchArrays), target: target)
         default:
             return source == target ? .unchanged(source) : .replace(target)
         }
@@ -766,6 +878,9 @@ extension JSONPatch {
     /// Initializes a JSONPatch instance with all json-patch operations required to transform the source
     /// json document into the target json document.
     ///
+    /// Completely changed containers may use one replacement. Operation paths,
+    /// ordering, and serialized bytes can change as generation strategies evolve.
+    ///
     /// - Parameters:
     ///   - source: The source json document.
     ///   - target: The target json document.
@@ -773,8 +888,18 @@ extension JSONPatch {
         self.init(operations: try JSONPatchGenerator.generatePatch(source: source, target: target))
     }
 
+    /// Generates a patch with optional size/generation-time tradeoffs.
+    /// Existing generation behavior applies when `generationOptions` is empty.
+    public convenience init(source: JSONElement, target: JSONElement, generationOptions: [GenerationOption]) throws {
+        self.init(operations: try JSONPatchGenerator.generatePatch(source: source, target: target,
+                  preferSmallerPatch: generationOptions.contains(.preferSmallerPatch)))
+    }
+
     /// Initialize a JSONPatch instance with all json-patch operations required to transform the source
     /// json document into the target json document.
+    ///
+    /// Completely changed containers may use one replacement. Operation paths,
+    /// ordering, and serialized bytes can change as generation strategies evolve.
     ///
     /// - Parameters:
     ///   - source: The source json document as data.
@@ -784,5 +909,13 @@ extension JSONPatch {
         let sourceJson = try JSONSerialization.jsonElement(with: source, options: options)
         let targetJson = try JSONSerialization.jsonElement(with: target, options: options)
         try self.init(source: sourceJson, target: targetJson)
+    }
+
+    /// Generates a patch from JSON data with optional size/generation-time tradeoffs.
+    public convenience init(source: Data, target: Data, options: JSONSerialization.ReadingOptions = [],
+                            generationOptions: [GenerationOption]) throws {
+        let sourceJson = try JSONSerialization.jsonElement(with: source, options: options)
+        let targetJson = try JSONSerialization.jsonElement(with: target, options: options)
+        try self.init(source: sourceJson, target: targetJson, generationOptions: generationOptions)
     }
 }

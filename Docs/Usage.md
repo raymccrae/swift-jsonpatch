@@ -76,6 +76,19 @@ do {
 
 A json-patch can be computed from the differences between two json documents. The created json-patch will consist of all the operations required to transform the source json document into the target json document.
 
+Generation keeps focused edits and useful copies, and can replace a container when all its direct children need replacements. It does not guarantee the fewest operations or the smallest patch. Operation paths, ordering, types, and exact serialized bytes can change between versions. If your application inspects operations, account for a container replacement covering several changed descendants. Apply the patch to obtain the target document; do not use its exact encoding as a stable change identifier.
+
+To spend more generation work on reducing patch bytes, pass `generationOptions: [.preferSmallerPatch]` to either generation initializer:
+
+```swift
+let patch = try JSONPatch(source: sourceData, target: targetData,
+                          generationOptions: [.preferSmallerPatch])
+```
+
+This option compares the prepared patch with a whole-document replacement after normal adaptation and copy selection. It selects the replacement only when its estimated default compact `data()` encoding is strictly smaller; ties keep the prepared patch. It does not optimize gzip or alternate writer options, and it does not guarantee a globally minimal patch. Generation can take longer even when the patch stays unchanged. Prefer the default for generation throughput; measure the option when transport bytes or application cost matter more.
+
+Estimation considers patches with two to 2,048 operations and at most 65,536 encoded patch bytes, with a 16-container value-depth limit and 32-component pointer-depth limit. It retains the prepared patch when an estimate exceeds these limits or cannot be obtained. These are implementation limits, not configurable API settings or a bound on total generation time or memory. Existing initializer signatures remain available; an empty `generationOptions` array uses the default policy.
+
 ```swift
 let sourceData = ... // a data representation of the before json document
 let targetData = ... // a data representation of the after json document

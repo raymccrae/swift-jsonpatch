@@ -123,6 +123,7 @@ private struct GenerationCheckFailure: Error, CustomStringConvertible {
 func assertGeneratedPatch(
     source sourceJSON: String, target targetJSON: String,
     context: String = "focused fixture",
+    generationOptions: [JSONPatch.GenerationOption] = [],
     sourceLocation: SourceLocation = #_sourceLocation,
     quality: (JSONPatch) throws -> Void = { _ in }
 ) throws {
@@ -130,13 +131,13 @@ func assertGeneratedPatch(
     let expectedTarget = try GenerationJSON.parse(targetJSON)
     for sourceMutable in [false, true] {
         for targetMutable in [false, true] {
-            let detail = Comment(rawValue: "\(context); sourceMutable=\(sourceMutable), targetMutable=\(targetMutable); source=\(sourceJSON); target=\(targetJSON)")
+            let detail = Comment(rawValue: "\(context); generationOptions=\(generationOptions); sourceMutable=\(sourceMutable), targetMutable=\(targetMutable); source=\(sourceJSON); target=\(targetJSON)")
             do {
                 let source = try JSONElement(any: GenerationJSON.read(sourceJSON, mutable: sourceMutable))
                 let target = try JSONElement(any: GenerationJSON.read(targetJSON, mutable: targetMutable))
                 #expect(try GenerationJSON(source.rawValue) == expectedSource, detail, sourceLocation: sourceLocation)
                 #expect(try GenerationJSON(target.rawValue) == expectedTarget, detail, sourceLocation: sourceLocation)
-                let patch = try JSONPatch(source: source, target: target)
+                let patch = try JSONPatch(source: source, target: target, generationOptions: generationOptions)
                 let data = try patch.data()
                 let encodedBefore = try GenerationJSON(JSONSerialization.jsonObject(with: data))
                 let decoded = try JSONPatch(data: data)

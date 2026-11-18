@@ -55,6 +55,9 @@ let patched = try! patch.apply(to: sourceData)
 ```
 
 ## Generating Patches
+
+Generation can replace a completely changed container with one operation. Operation paths and exact patch bytes can change between versions; see the [generation behavior notes](Docs/Usage.md#generate-a-json-patch-from-the-differences-between-two-json-documents).
+
 ```swift
 import JSONPatch
 
@@ -70,7 +73,7 @@ let patchData = try! patch.data()
 
 ## Concurrency
 
-`JSONPointer`, `JSONPatch.ApplyOption`, and `JSONError` can cross actor boundaries.
+`JSONPointer`, `JSONPatch.ApplyOption`, `JSONPatch.GenerationOption`, and `JSONError` can cross actor boundaries.
 Keep `JSONPatch`, its operations, and `JSONElement` within one actor or task because they can retain mutable Foundation objects.
 Transfer JSON `Data` between actors and create the patch inside the receiving actor.
 See the [concurrency example](Docs/Swift6Migration.md#use-jsonpatch-with-actors).
