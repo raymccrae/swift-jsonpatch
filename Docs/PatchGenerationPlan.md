@@ -12,7 +12,7 @@ The reference implementation is v2.0.0, commit `7ccc425d3e58da374c9af600074c6ff2
 
 The [generator](../Sources/JSONPatch/JSONPatchGenerator.swift) performs an unchanged-value traversal followed by a difference traversal. Both use recursive equality checks. Each addition searches unchanged candidates for a possible `copy`. Arrays are compared by position, with removals and additions at the end.
 
-The [generator tests](../Tests/JSONPatchTests/JSONPatchGeneratorTests.swift) cover large documents, array transfers, Unicode property identity, and copy candidates. `testPerformanceGenerate` executes generation but does not measure performance. Keep it as a correctness smoke test, rename it to describe that role, and put performance measurement in a separate executable.
+The [generator tests](../Tests/JSONPatchTests/JSONPatchGeneratorTests.swift) cover large documents, array transfers, Unicode property identity, and copy candidates. The former `testPerformanceGenerate` is named `testGenerateLargeFixtureSmoke`; timing lives in the separate benchmark executable. Before stage 2, [focused quality expectations and seeded generated-document checks](PatchGenerationTests.md) extend the ordinary test suite while leaving the generator unchanged. These tests protect focused edits, useful copies, sequential source validity, input preservation, and reuse without requiring one ordering for independent object operations.
 
 Temporary experiments suggest that sharing traversal work and indexing copy candidates can reduce generation time without losing compact copies. They also show that a `copy` can be larger than an `add`, and that a front insertion can produce many positional replacements. Treat those results as hypotheses. Do not use their timings as the project's performance baseline or copy the experimental implementation into production.
 
@@ -119,7 +119,7 @@ Evaluate a traversal that discovers differences and stable copy sources together
 
 Keep any cache local to one call because `JSONElement` can retain mutable Foundation objects. Avoid a full indexing or normalization pass when its cost exceeds the work saved on small documents.
 
-Add focused correctness tests for paths discovered before and after an addition and for nested arrays. Run the ordinary Debug and Release tests on macOS and Linux, then the same benchmark matrix against the fixed baseline.
+Retain the pre-stage-2 tests for copy sources discovered before and after an addition and for nested arrays. Add focused regressions for any additional traversal risks exposed by the implementation. Run the ordinary Debug and Release tests on macOS and Linux, then the same benchmark matrix against the fixed baseline.
 
 **Stage completion:** measured traversal savings exceed baseline noise on the target cases, and the report accounts for small-document overhead, memory, output sizes, and application cost. Defer representation changes that lack a measured benefit.
 
