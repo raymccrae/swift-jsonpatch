@@ -97,6 +97,8 @@ python3 Scripts/check-xcframework.py Carthage/Build/JSONPatch.xcframework ios ma
 The Xcode test check requires an installed iPhone simulator runtime. CocoaPods and Carthage must be installed for their respective checks.
 GitHub Actions runs Swift 6.0 and 6.2 tests on macOS and Linux, plus Apple distribution checks.
 
+For patch generation measurements, use the standalone [benchmark suite](Benchmarks/README.md). It measures generation, serialization, application, patch size, and memory without adding dependencies to the library.
+
 # License
 
 Apache License v2.0

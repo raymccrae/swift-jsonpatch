@@ -38,12 +38,11 @@ struct JSONPatchGeneratorTests {
         #expect(source == target)
     }
 
-    @Test func testPerformanceGenerate() throws {
+    @Test func testGenerateLargeFixtureSmoke() throws {
         let source = try JSONSerialization.jsonElement(with: sourceData, options: [.mutableContainers])
         let target = try JSONSerialization.jsonElement(with: targetData, options: [])
 
-        // Note: Swift Testing doesn't have a direct equivalent to measure(),
-        // but we can still run the code to ensure it works
+        // Timings are measured by the standalone Benchmarks package.
         _ = try JSONPatch(source: source, target: target)
     }
 

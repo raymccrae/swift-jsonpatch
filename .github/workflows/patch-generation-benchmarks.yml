@@ -1,0 +1,81 @@
+name: Patch generation benchmarks
+
+on:
+  push:
+    branches: ['develop', 'feature/**']
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      profile:
+        description: Corpus size
+        type: choice
+        options: [quick, full]
+        default: quick
+
+permissions:
+  contents: read
+
+jobs:
+  benchmark:
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            swift: '6.0.3'
+            xcode: ''
+          - os: ubuntu-latest
+            swift: '6.2'
+            xcode: ''
+          - os: macos-15
+            swift: ''
+            xcode: '16.2'
+          - os: macos-15
+            swift: ''
+            xcode: '26.3'
+    runs-on: ${{ matrix.os }}
+    container: ${{ matrix.swift && format('swift:{0}', matrix.swift) || null }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - if: matrix.swift != ''
+        name: Install Python and process tools
+        run: apt-get update && apt-get install -y python3 procps
+      - if: matrix.xcode != ''
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: ${{ matrix.xcode }}
+      - name: Harness regression tests
+        run: |
+          python3 Scripts/test-patch-generation-benchmarks.py
+          swift test --package-path Benchmarks -Xswiftc -warnings-as-errors
+      - name: Validate quick corpus in all mutability combinations
+        run: python3 Scripts/benchmark-patch-generation.py --validate-only --library-ref v2.0.0 --output Benchmarks/Results/validation
+      - name: Measure v2.0.0 baseline and baseline noise
+        env:
+          BENCHMARK_PROFILE: ${{ inputs.profile || 'quick' }}
+        run: >-
+          python3 Scripts/benchmark-patch-generation.py
+          --profile "$BENCHMARK_PROFILE"
+          --library-ref v2.0.0 --baseline-ref v2.0.0
+          --processes 3 --samples 5 --sample-ms 5
+          --output Benchmarks/Results/reference
+      - name: Export compact reference summary
+        run: >-
+          python3 Scripts/summarize-patch-generation-baseline.py
+          Benchmarks/Results/reference/baseline.json
+          Benchmarks/Results/reference/candidate.json
+          --output Benchmarks/Results/reference/summary.json --print-json
+      - name: Upload reports even on a failed case
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: patch-generation-${{ matrix.os }}-${{ matrix.swift || matrix.xcode }}
+          path: |
+            Benchmarks/Results/validation/*.json
+            Benchmarks/Results/validation/*.md
+            Benchmarks/Results/reference/*.json
+            Benchmarks/Results/reference/*.md
+          retention-days: 30

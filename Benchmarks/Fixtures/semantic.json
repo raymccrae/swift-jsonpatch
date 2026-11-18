@@ -1,0 +1,9 @@
+[
+  {"name":"unicode-keys","source":"{\"\u00e9\":1,\"e\u0301\":2}","target":"{\"\u00e9\":3,\"e\u0301\":4}"},
+  {"name":"unicode-copy-candidates","source":"{\"stable\":{\"\u00e9\":1}}","target":"{\"stable\":{\"\u00e9\":1},\"added\":{\"e\u0301\":1}}"},
+  {"name":"boolean-integer-null","source":"{\"a\":true,\"b\":1,\"c\":null}","target":"{\"a\":1,\"b\":true,\"c\":false}"},
+  {"name":"integer-boundaries","source":"[9007199254740992,18446744073709551615,-9223372036854775808]","target":"[9007199254740993,18446744073709551614,-9223372036854775807]"},
+  {"name":"escaped-empty-keys","source":"{\"\":{\"a/b\":1,\"~key\":2}}","target":"{\"\":{\"a/b\":3,\"~key\":4,\"/~\":null}}"},
+  {"name":"array-transfer","source":"[[1,2,3],[]]","target":"[[1],[2,3]]"},
+  {"name":"root-null-to-number","source":"null","target":"1"}
+]
