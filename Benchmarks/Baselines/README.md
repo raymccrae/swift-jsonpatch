@@ -25,6 +25,16 @@ python3 Scripts/summarize-patch-generation-baseline.py \
   --output Benchmarks/Baselines/v2.0.0-local.json
 ```
 
-The initial harness capture records a dirty working tree and its exact content hash because it preceded the implementation commit. Its measured library is a clean Git export of v2.0.0, with a separate library content hash. The checked-in harness reproduces that hash. Full local raw reports remain ignored under `Benchmarks/Results/reference-final/`; re-run to obtain fresh samples rather than comparing against this compact summary.
+The initial harness capture records a dirty working tree and its exact content hash because it preceded the implementation commit. Its measured library is a clean Git export of v2.0.0, with a separate library content hash. Implementation commit `8c1b3f9` reproduces that harness hash. Full local raw reports remain ignored under `Benchmarks/Results/reference-final/`; re-run to obtain fresh samples rather than comparing against this compact summary.
 
-Linux and the supported Xcode matrix are captured independently by the benchmark workflow. Their hosted-runner timings are informational and must not be compared directly with this machine's absolute timings.
+## Pending cross-platform capture
+
+Linux and the supported Xcode 16.2/26.3 matrix have not been run for this implementation. The feature branch is local at the user's request, and this host has no Linux runtime. The configured workflow can capture those reference reports when the branch is published. Stage 1's cross-platform baseline acceptance criterion remains pending until those jobs pass and their reports are reviewed. Hosted-runner timings will be informational and must not be compared directly with this machine's absolute timings.
+
+## Local verification
+
+- Library correctness: all 86 tests passed in both Debug and Release with compiler warnings treated as errors.
+- Benchmark support: all seven Swift tests and all 12 Python regression tests passed.
+- Corpus correctness: all 236 full-corpus source/target mutability combinations passed against the exported release.
+- Reference measurements: both halves of all 126 quick-corpus measurement combinations passed, with three process pairs each and separate memory workers.
+- The working library's source and package-manifest content hash matches the measured release snapshot. No generator or library implementation changes are included.

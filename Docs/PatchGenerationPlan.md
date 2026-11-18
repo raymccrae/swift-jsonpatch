@@ -2,7 +2,7 @@
 
 Build a reproducible benchmark suite before changing the generator. Use it to improve generation time, patch size, application time, and memory use while preserving JSON Patch correctness and the existing public API.
 
-This is an implementation plan. Stage 1's harness and commands are implemented in the [benchmark suite](../Benchmarks/README.md); its reference reports are tracked under [Baselines](../Benchmarks/Baselines/README.md). Stages 2–5 remain proposed. Implement each stage as a separate, reviewable change, and retain only improvements supported by measurements.
+This is an implementation plan. Stage 1's harness and commands are implemented in the [benchmark suite](../Benchmarks/README.md); its local macOS reference and pending cross-platform captures are tracked under [Baselines](../Benchmarks/Baselines/README.md). The feature branch remains local at the user's request. Stage 1's Linux and supported-Xcode baseline acceptance criterion is pending; stages 2–5 remain proposed. Implement each stage as a separate, reviewable change, and retain only improvements supported by measurements.
 
 Use `feature/patch-generation` for this proposal, based on `develop`. Create subsequent `feature/<topic>` branches from `develop` for selected implementation stages. Merge selected work into `develop`; reserve `master` for released versions. Follow the [repository workflow](../AGENTS.md).
 
