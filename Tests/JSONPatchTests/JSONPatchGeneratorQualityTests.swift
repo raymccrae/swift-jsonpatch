@@ -435,3 +435,153 @@ struct JSONPatchCopyIndexTests {
         }
     }
 }
+
+struct JSONPatchArrayGenerationTests {
+    @Test(arguments: [
+        ("[1,2,3]", "[0,1,2,3]", #"[{"op":"add","path":"/0","value":0}]"#),
+        ("[0,1,3]", "[0,1,2,3]", #"[{"op":"add","path":"/2","value":2}]"#),
+        ("[0,1,2,3]", "[0,2,3]", #"[{"op":"remove","path":"/1"}]"#),
+        ("[0,3]", "[0,1,2,3]", #"[{"op":"add","path":"/1","value":1},{"op":"add","path":"/2","value":2}]"#),
+        ("[0,1,2,3]", "[0,3]", #"[{"op":"remove","path":"/2"},{"op":"remove","path":"/1"}]"#),
+        (#"[{"leaf":1,"stable":[1,2,3]}]"#, #"[{"leaf":2,"stable":[1,2,3]}]"#,
+         #"[{"op":"replace","path":"/0/leaf","value":2}]"#)
+    ])
+    func focusedArrayEdits(source: String, target: String, operations: String) throws {
+        try assertGeneratedPatch(source: source, target: target) { (patch: JSONPatch) throws -> Void in
+            let actual = try GenerationJSON(JSONSerialization.jsonObject(with: patch.data()))
+            #expect(try actual == GenerationJSON.parse(operations))
+        }
+    }
+
+    @Test(arguments: ["[0,1,0,1,0]", "[0,1,2,3,4]", "[0,1,2,3,4,5,6,7,8,9]"])
+    func rotationRetainsSequenceWithTwoEdits(source: String) throws {
+        let original = try GenerationJSON.parse(source)
+        guard case .array(let values) = original else { Issue.record("Expected array"); return }
+        let target = try GenerationJSON.array(Array(values.dropFirst()) + [values[0]]).json()
+        try assertGeneratedPatch(source: source, target: target) { patch in
+            #expect(patch.operations.count == 2)
+            for operation in patch.operations {
+                if case .move = operation { Issue.record("Automatic move generation remains deferred") }
+            }
+        }
+    }
+
+    @Test func boundedMatchingHandlesLongRotationAndFallsBackOnReversal() throws {
+        let values = (0..<10_000).map { NSNumber(value: $0) }
+        let source = NSArray(array: values)
+        let rotated = NSArray(array: Array(values.dropFirst()) + [values[0]])
+        let rotation = try JSONPatchGenerator.ArrayMatching.align(source, rotated)
+        #expect(!rotation.usedFallback)
+        #expect(rotation.matches.count == values.count - 1)
+        let reversal = try JSONPatchGenerator.ArrayMatching.align(source, NSArray(array: Array(values.reversed())))
+        #expect(reversal.usedFallback)
+        #expect(reversal.work <= JSONPatchGenerator.ArrayMatching.maximumWork)
+        #expect(reversal.traceEntries <= 171)
+    }
+
+    @Test func smallReversalsDoNotInflateTheOperationCount() throws {
+        for length in [4, 5, 10] {
+            let values = (0..<length).map(String.init)
+            try assertGeneratedPatch(source: "[" + values.joined(separator: ",") + "]",
+                                     target: "[" + values.reversed().joined(separator: ",") + "]") { patch in
+                #expect(patch.operations.count <= length)
+            }
+        }
+    }
+
+    @Test func largeNestedValuesStopExtraMatchingAtTheBudget() throws {
+        let body = String(repeating: "x", count: 100_000)
+        let literal = try GenerationJSON.text(body).json()
+        let source = "[\(literal)]"
+        let target = "[0,\(literal)]"
+        let a = try #require(GenerationJSON.read(source) as? NSArray)
+        let b = try #require(GenerationJSON.read(target) as? NSArray)
+        let limited = try JSONPatchGenerator.ArrayMatching.align(a, b, workLimit: 32)
+        #expect(limited.usedFallback)
+        #expect(limited.work <= 32)
+        #expect(limited.traceEntries * MemoryLayout<Int>.stride <= 64 * 1024)
+        try assertGeneratedPatch(source: source, target: target)
+    }
+
+    @Test func arrayShiftsCannotInvalidateLaterCopySources() throws {
+        let payload = try GenerationJSON.text(String(repeating: "payload", count: 100)).json()
+        try assertGeneratedPatch(source: "[[\(payload),1,2],[]]", target: "[[0,\(payload),1,2],[\(payload)]]") { patch in
+            for operation in patch.operations {
+                if case .copy(let from, _) = operation { #expect(from.string != "/0/0") }
+            }
+        }
+    }
+
+    @Test func unchangedPrefixAndExternalDonorsStillProduceCopies() throws {
+        let payload = try GenerationJSON.text(String(repeating: "payload", count: 100)).json()
+        // Interior insertion shifts the suffix, but source /0/0 never moves.
+        try assertGeneratedPatch(source: "[[\(payload),1,2],[]]", target: "[[\(payload),0,1,2],[\(payload)]]") { patch in
+            #expect(patch.operations.contains { if case .copy(let from, _) = $0 { return from.string == "/0/0" }; return false })
+        }
+        try assertGeneratedPatch(source: "{\"stable\":\(payload),\"array\":[1,2,3]}",
+                                 target: "{\"stable\":\(payload),\"array\":[\(payload),1,2,3]}") { patch in
+            #expect(patch.operations.count == 1)
+            #expect(patch.operations.contains { if case .copy(let from, let path) = $0 { return from.string == "/stable" && path.string == "/array/0" }; return false })
+        }
+    }
+
+    @Test func booleanNumericAndUnicodeIdentityRemainExactDuringMatching() throws {
+        try assertGeneratedPatch(source: #"[true,9007199254740992,{"\u00e9":1,"e\u0301":2}]"#,
+                                 target: #"[0,true,9007199254740993,{"\u00e9":2,"e\u0301":1}]"#)
+    }
+
+    @Test func deepSingletonArraysPreserveOneLeafEdit() throws {
+        var source = "1"
+        var target = "2"
+        for _ in 0..<64 { source = "[\(source)]"; target = "[\(target)]" }
+        try assertGeneratedPatch(source: source, target: target) { patch in
+            #expect(patch.operations.count == 1)
+        }
+    }
+
+    @Test func exhaustiveSmallDuplicateArraysRoundTrip() throws {
+        var arrays = ["[]"]
+        for length in 1...3 {
+            for bits in 0..<(1 << length) {
+                arrays.append("[" + (0..<length).map { String((bits >> $0) & 1) }.joined(separator: ",") + "]")
+            }
+        }
+        for source in arrays {
+            for target in arrays { try assertGeneratedPatch(source: source, target: target) }
+        }
+    }
+
+    @Test func exhaustiveMatchingAnchorsAreExactAndMonotone() throws {
+        var arrays: [[Int]] = [[]]
+        for length in 1...5 {
+            for bits in 0..<(1 << length) { arrays.append((0..<length).map { (bits >> $0) & 1 }) }
+        }
+        for source in arrays {
+            for target in arrays {
+                let result = try JSONPatchGenerator.ArrayMatching.align(NSArray(array: source), NSArray(array: target))
+                // Independent small LCS oracle checks the search/backtracking,
+                // not merely that the returned anchors happen to be equal.
+                var lcs = Array(repeating: Array(repeating: 0, count: target.count + 1), count: source.count + 1)
+                for i in source.indices {
+                    for j in target.indices {
+                        lcs[i + 1][j + 1] = source[i] == target[j] ? lcs[i][j] + 1 : max(lcs[i][j + 1], lcs[i + 1][j])
+                    }
+                }
+                if !result.usedFallback {
+                    #expect(result.prefix + result.matches.count + result.suffix == lcs[source.count][target.count])
+                } else {
+                    #expect(result.work <= JSONPatchGenerator.ArrayMatching.maximumWork)
+                }
+                var previousSource = result.prefix - 1
+                var previousTarget = result.prefix - 1
+                for match in result.matches {
+                    #expect(match.source > previousSource && match.target > previousTarget)
+                    #expect(source.indices.contains(match.source) && target.indices.contains(match.target))
+                    #expect(source[match.source] == target[match.target])
+                    previousSource = match.source
+                    previousTarget = match.target
+                }
+            }
+        }
+    }
+}

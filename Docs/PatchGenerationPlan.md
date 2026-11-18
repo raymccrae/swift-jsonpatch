@@ -2,7 +2,7 @@
 
 Build a reproducible benchmark suite before changing the generator. Use it to improve generation time, patch size, application time, and memory use while preserving JSON Patch correctness and the existing public API.
 
-This is an implementation plan. Stage 1's harness and commands are implemented in the [benchmark suite](../Benchmarks/README.md); its local macOS reference and pending cross-platform captures are tracked under [Baselines](../Benchmarks/Baselines/README.md). Stage 2's shared planning is assessed in its [macOS report](../Benchmarks/Reports/stage2-macos-arm64-swift6.4.2.md), and stage 3's copy lookup and encoding choices in the [stage 3 assessment](../Benchmarks/Reports/stage3-macos-arm64-swift6.4.2.md). The feature branch remains local at the user's request. Linux and supported-Xcode acceptance checks for stages 1–3 are pending; stages 4–5 remain proposed. Keep each stage reviewable, and retain only improvements supported by measurements.
+This is an implementation plan. Stage 1's harness and commands are implemented in the [benchmark suite](../Benchmarks/README.md); its local macOS reference and pending cross-platform captures are tracked under [Baselines](../Benchmarks/Baselines/README.md). Stage 2's shared planning is assessed in its [macOS report](../Benchmarks/Reports/stage2-macos-arm64-swift6.4.2.md), stage 3's copy lookup and encoding choices in the [stage 3 assessment](../Benchmarks/Reports/stage3-macos-arm64-swift6.4.2.md), and stage 4's bounded array edits in the [stage 4 assessment](../Benchmarks/Reports/stage4-macos-arm64-swift6.4.2.md). The feature branch remains local at the user's request. Linux and supported-Xcode acceptance checks for stages 1–4 are pending; stage 5 remains proposed. Keep each stage reviewable, and retain only improvements supported by measurements.
 
 Use `feature/patch-generation` for this proposal, based on `develop`. Create subsequent `feature/<topic>` branches from `develop` for selected implementation stages. Merge selected work into `develop`; reserve `master` for released versions. Follow the [repository workflow](../AGENTS.md).
 
@@ -10,7 +10,7 @@ Use `feature/patch-generation` for this proposal, based on `develop`. Create sub
 
 The reference implementation is v2.0.0, commit `7ccc425d3e58da374c9af600074c6ff223089fe8`.
 
-The v2.0.0 reference performs an unchanged-value traversal followed by a difference traversal. Both use recursive equality checks. Each addition searches unchanged candidates for a possible `copy`. Arrays are compared by position, with removals and additions at the end. The [generator](../Sources/JSONPatch/JSONPatchGenerator.swift) now contains the locally assessed stages 2 and 3 described below.
+The v2.0.0 reference performs an unchanged-value traversal followed by a difference traversal. Both use recursive equality checks. Each addition searches unchanged candidates for a possible `copy`. Arrays are compared by position, with removals and additions at the end. The [generator](../Sources/JSONPatch/JSONPatchGenerator.swift) now contains the locally assessed stages 2–4 described below.
 
 The [generator tests](../Tests/JSONPatchTests/JSONPatchGeneratorTests.swift) cover large documents, array transfers, Unicode property identity, and copy candidates. The former `testPerformanceGenerate` is named `testGenerateLargeFixtureSmoke`; timing lives in the separate benchmark executable. Before stage 2, [focused quality expectations and seeded generated-document checks](PatchGenerationTests.md) were added to the ordinary test suite without altering the generator. These tests protect focused edits, useful copies, sequential source validity, input preservation, and reuse without requiring one ordering for independent object operations.
 
@@ -140,6 +140,8 @@ A copy source must exist and still contain the expected value when that operatio
 **Stage completion:** candidate-heavy cases improve without losing large-value reuse, tiny values avoid unnecessarily larger copies, and collisions cannot change correctness. Publish timing, size, memory, and application results, including any regressions accepted as a tradeoff.
 
 ## 4. Improve array edit quality with bounded work
+
+**Local implementation:** exact prefix/suffix matching and a bounded Myers search retain short edit sequences. Unmatched runs use recursive positional edits. Search stops at 65,536 weighted work units or an edit distance of at most eight; rejected searches also disable further sequence searches within their unmatched subtrees. Copy collection excludes shifted array positions while retaining safe prefixes and external sources. The [assessment](../Benchmarks/Reports/stage4-macos-arm64-swift6.4.2.md) records quality gains, generation/application costs, bounds, and fallback limitations. The implementation remains local on `feature/patch-generation`; cross-platform acceptance is pending.
 
 Begin with common-prefix and common-suffix matching for straightforward insertions and deletions. Then compare the existing positional strategy with a sequence-diff strategy for the remaining region. Use exact JSON equality and include duplicate-heavy, reversed, and unrelated arrays.
 

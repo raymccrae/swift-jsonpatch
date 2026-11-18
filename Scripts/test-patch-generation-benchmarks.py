@@ -53,6 +53,18 @@ class CorpusTests(unittest.TestCase):
         self.assertEqual(len(set(source.values())), 64)
         self.assertEqual(len({(len(v), v[:32]) for v in source.values()}), 1)
 
+    def test_array_corpus_has_sparse_duplicate_and_bounded_fallback_cases(self):
+        cases = {case["name"]: case for case in support.corpus("full")}
+        sparse = cases["two-inserts-n1000"]
+        source, target = [json.loads(sparse[key]) for key in ("source", "target")]
+        self.assertEqual([v for v in target if v >= 0], source)
+        self.assertEqual(target[250], -1)
+        self.assertEqual(target[751], -2)
+        duplicate = json.loads(cases["duplicate-rotate-n1000"]["source"])
+        self.assertLess(len(set(duplicate)), len(duplicate))
+        for name in ("unrelated-n1000", "object-prepend-n1000", "donor-invalidated-by-prepend", "safe-prefix-donor-insert"):
+            self.assertIn(name, cases)
+
 
 class ProcessTests(unittest.TestCase):
     def test_interrupt_reaps_the_worker(self):

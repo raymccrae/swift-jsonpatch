@@ -29,6 +29,8 @@ The initial harness capture records a dirty working tree and its exact content h
 
 This reference uses corpus version 1. Stage 3 expands the harness to corpus version 2; fresh runs from that checkout use its 21 quick/71 full cases. For exact reproduction of the historical capture, use the recorded version 1 harness rather than comparing reports across harness hashes. Stage 3's incremental and release comparisons use version 2 on both sides and are documented in its [assessment](../Reports/stage3-macos-arm64-swift6.4.2.md).
 
+Stage 4 expands the harness to version 3 (29 quick/81 full cases). Its fresh stage-3 and release comparisons use version 3 on both sides; see the [stage 4 assessment](../Reports/stage4-macos-arm64-swift6.4.2.md). Historical reference files remain unchanged.
+
 ## Pending cross-platform capture
 
 Linux and the supported Xcode 16.2/26.3 matrix have not been run for this implementation. The feature branch is local at the user's request, and this host has no Linux runtime. The configured workflow can capture those reference reports when the branch is published. Stage 1's cross-platform baseline acceptance criterion remains pending until those jobs pass and their reports are reviewed. Hosted-runner timings will be informational and must not be compared directly with this machine's absolute timings.

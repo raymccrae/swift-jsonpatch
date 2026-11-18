@@ -84,12 +84,216 @@ struct JSONPatchGenerator {
         case replace(JSONElement)
         case object(removals: [ObjectKey], additions: [(ObjectKey, JSONElement)],
                     children: [(ObjectKey, Comparison)])
-        case array(removals: Range<Int>, additions: [JSONElement], children: [Comparison])
+        case array(ArrayPlan)
 
         var isUnchanged: Bool {
             if case .unchanged = self { return true }
             return false
         }
+    }
+
+    // Extra sequence-search work is bounded independently of the positional
+    // comparison needed to generate a correct fallback patch.
+    enum ArrayMatching {
+        static let maximumWork = 65_536
+        static let maximumDistance = 8
+
+        struct Result {
+            let prefix: Int
+            let suffix: Int
+            let matches: [(source: Int, target: Int)]
+            let usedFallback: Bool
+            let equalityLimited: Bool
+            let work: Int
+            let traceEntries: Int
+        }
+
+        private struct Budget {
+            let limit: Int
+            var remaining: Int
+
+            mutating func spend(_ count: Int) -> Bool {
+                guard count <= remaining else { return false }
+                remaining -= count
+                return true
+            }
+
+            mutating func equal(_ a: JSONElement, _ b: JSONElement, depth: Int = 0) throws -> Bool? {
+                guard spend(1) else { return nil }
+                switch (a, b) {
+                case (.string(let x), .string(let y)):
+                    if x === y { return true }
+                    guard x.length == y.length else { return false }
+                    guard x.length <= remaining / 2, spend(x.length * 2) else { return nil }
+                    return JSONPointer.tokensEqual(x as String, y as String)
+                case (.array(let x), .array(let y)),
+                     (.array(let x), .mutableArray(let y as NSArray)),
+                     (.mutableArray(let x as NSArray), .array(let y)),
+                     (.mutableArray(let x as NSArray), .mutableArray(let y as NSArray)):
+                    if x === y { return true }
+                    guard x.count == y.count else { return false }
+                    guard depth < 16, spend(x.count) else { return nil }
+                    for index in 0..<x.count {
+                        let left = try JSONElement(any: x.jsonObject(at: index))
+                        let right = try JSONElement(any: y.jsonObject(at: index))
+                        guard let same = try equal(left, right, depth: depth + 1) else { return nil }
+                        if !same { return false }
+                    }
+                    return true
+                case (.object(let x), .object(let y)),
+                     (.object(let x), .mutableObject(let y as NSDictionary)),
+                     (.mutableObject(let x as NSDictionary), .object(let y)),
+                     (.mutableObject(let x as NSDictionary), .mutableObject(let y as NSDictionary)):
+                    if x === y { return true }
+                    guard x.count == y.count else { return false }
+                    guard depth < 16, x.count <= 32, spend(x.count) else { return nil }
+                    var keys: [String] = []
+                    for raw in x.allKeys {
+                        guard let key = raw as? NSString else { return nil }
+                        guard key.length <= remaining / 2, spend(key.length * 2) else { return nil }
+                        keys.append(key as String)
+                    }
+                    // Mismatch order and budget exhaustion must not depend on
+                    // the process's randomized object-key enumeration.
+                    func precedes(_ a: String, _ b: String) -> Bool {
+                        a.unicodeScalars.lexicographicallyPrecedes(b.unicodeScalars) { $0.value < $1.value }
+                    }
+                    func valueEqual(_ key: String) throws -> Bool? {
+                        guard let left = x.jsonObject(forKey: key as NSString),
+                              let right = y.jsonObject(forKey: key as NSString) else { return false }
+                        return try equal(JSONElement(any: left), JSONElement(any: right), depth: depth + 1)
+                    }
+                    // Probe the canonical first key before sorting the rest.
+                    // Cheap record mismatches need not pay for a complete sort.
+                    if let index = keys.indices.min(by: { precedes(keys[$0], keys[$1]) }) {
+                        let first = keys.remove(at: index)
+                        guard let same = try valueEqual(first) else { return nil }
+                        if !same { return false }
+                    }
+                    keys.sort(by: precedes)
+                    for key in keys {
+                        guard let same = try valueEqual(key) else { return nil }
+                        if !same { return false }
+                    }
+                    return true
+                default: return a == b
+                }
+            }
+        }
+
+        static func align(_ a: NSArray, _ b: NSArray, workLimit: Int = maximumWork) throws -> Result {
+            precondition(workLimit >= 0)
+            var budget = Budget(limit: workLimit, remaining: workLimit)
+            var prefix = 0
+            var suffix = 0
+            var trace: [[Int]] = []
+            func result(_ matches: [(Int, Int)] = [], fallback: Bool = false, equalityLimited: Bool = false) -> Result {
+                Result(prefix: prefix, suffix: suffix, matches: matches, usedFallback: fallback, equalityLimited: equalityLimited,
+                       work: budget.limit - budget.remaining,
+                       traceEntries: trace.reduce(0) { $0 + $1.count })
+            }
+            func elements(_ i: Int, _ j: Int) throws -> (JSONElement, JSONElement) {
+                (try JSONElement(any: a.jsonObject(at: i)), try JSONElement(any: b.jsonObject(at: j)))
+            }
+            while prefix < min(a.count, b.count) {
+                let (x, y) = try elements(prefix, prefix)
+                guard let same = try budget.equal(x, y) else { return result(fallback: true, equalityLimited: true) }
+                if !same { break }
+                prefix += 1
+            }
+            while suffix < min(a.count, b.count) - prefix {
+                let (x, y) = try elements(a.count - suffix - 1, b.count - suffix - 1)
+                guard let same = try budget.equal(x, y) else { return result(fallback: true, equalityLimited: true) }
+                if !same { break }
+                suffix += 1
+            }
+            let n = a.count - prefix - suffix
+            let m = b.count - prefix - suffix
+            if n == 0 || m == 0 || (n == 1 && m == 1) { return result() }
+            guard abs(n - m) <= maximumDistance else { return result(fallback: true) }
+            let distanceLimit = min(maximumDistance, max(2, (n + m) / 4))
+            let offset = distanceLimit + 1
+            var frontier = [Int](repeating: 0, count: 2 * distanceLimit + 3)
+            // Bounded Myers search. Snapshot at the start of each distance for
+            // backtracking; at distance 8 this stores at most 171 integers.
+            for distance in 0...distanceLimit {
+                trace.append(frontier)
+                for diagonal in stride(from: -distance, through: distance, by: 2) {
+                    guard budget.spend(1) else { return result(fallback: true, equalityLimited: true) }
+                    var x: Int
+                    if diagonal == -distance || (diagonal != distance && frontier[offset + diagonal - 1] < frontier[offset + diagonal + 1]) {
+                        x = frontier[offset + diagonal + 1]
+                    } else { x = frontier[offset + diagonal - 1] + 1 }
+                    var y = x - diagonal
+                    while x < n && y < m {
+                        let (left, right) = try elements(prefix + x, prefix + y)
+                        guard let same = try budget.equal(left, right) else { return result(fallback: true, equalityLimited: true) }
+                        if !same { break }
+                        x += 1
+                        y += 1
+                    }
+                    frontier[offset + diagonal] = x
+                    if x >= n && y >= m {
+                        var pairs: [(Int, Int)] = []
+                        var bx = n
+                        var by = m
+                        for d in stride(from: distance, through: 1, by: -1) {
+                            let previous = trace[d]
+                            let k = bx - by
+                            let previousK: Int
+                            if k == -d || (k != d && previous[offset + k - 1] < previous[offset + k + 1]) {
+                                previousK = k + 1
+                            } else { previousK = k - 1 }
+                            let previousX = previous[offset + previousK]
+                            let previousY = previousX - previousK
+                            while bx > previousX && by > previousY {
+                                pairs.append((prefix + bx - 1, prefix + by - 1))
+                                bx -= 1
+                                by -= 1
+                            }
+                            bx = previousX
+                            by = previousY
+                        }
+                        while bx > 0 && by > 0 {
+                            pairs.append((prefix + bx - 1, prefix + by - 1))
+                            bx -= 1
+                            by -= 1
+                        }
+                        let anchors = Array(pairs.reversed())
+                        var old = prefix
+                        var new = prefix
+                        var edits = 0
+                        for anchor in anchors {
+                            edits += max(anchor.0 - old, anchor.1 - new)
+                            old = anchor.0 + 1
+                            new = anchor.1 + 1
+                        }
+                        edits += max(a.count - suffix - old, b.count - suffix - new)
+                        // Reject an alignment that needs more top-level edits
+                        // than a positional middle. In particular, a small
+                        // reversal must not become many removals and insertions.
+                        if edits > max(n, m) { return result(fallback: true) }
+                        return result(anchors)
+                    }
+                }
+            }
+            return result(fallback: true)
+        }
+    }
+
+    private enum ArrayPart {
+        case keep(source: Range<Int>, target: Int)
+        case change(source: Int, target: Int, comparison: Comparison)
+        case remove(Range<Int>)
+        case insert(index: Int, value: JSONElement, append: Bool)
+    }
+
+    private struct ArrayPlan {
+        let source: NSArray
+        let parts: [ArrayPart]
+        // Only original indices before the first shift are safe for the whole
+        // operation sequence. A final matching value alone is not sufficient.
+        let copySourcePrefix: Int
     }
 
     // Internal helpers are exercised directly by collision and size tests.
@@ -321,7 +525,7 @@ struct JSONPatchGenerator {
         var generator = JSONPatchGenerator()
         let comparison = try generator.compare(source: source, target: target)
         guard !comparison.isUnchanged else { return [] }
-        generator.plan(pointer: .wholeDocument, comparison: comparison)
+        try generator.plan(pointer: .wholeDocument, comparison: comparison)
         generator.resolveCopies()
         return generator.operations
     }
@@ -329,27 +533,27 @@ struct JSONPatchGenerator {
     // Compare each corresponding pair once. Container equality, key sets, and
     // child conversions are reused by the edit plan rather than recomputed by
     // separate unchanged-value and diff traversals. Everything lives in this call.
-    private mutating func compare(source: JSONElement, target: JSONElement) throws -> Comparison {
+    private mutating func compare(source: JSONElement, target: JSONElement, matchArrays: Bool = true) throws -> Comparison {
         switch (source, target) {
         case (.object(let a), .object(let b)),
              (.object(let a), .mutableObject(let b as NSDictionary)),
              (.mutableObject(let a as NSDictionary), .object(let b)),
              (.mutableObject(let a as NSDictionary), .mutableObject(let b as NSDictionary)):
             if a === b { return .unchanged(source) }
-            return try compareObjects(a, b, source: source)
+            return try compareObjects(a, b, source: source, matchArrays: matchArrays)
         case (.array(let a), .array(let b)),
              (.array(let a), .mutableArray(let b as NSArray)),
              (.mutableArray(let a as NSArray), .array(let b)),
              (.mutableArray(let a as NSArray), .mutableArray(let b as NSArray)):
             if a === b { return .unchanged(source) }
-            return try compareArrays(a, b, source: source)
+            return try compareArrays(a, b, source: source, matchArrays: matchArrays)
         default:
             return source == target ? .unchanged(source) : .replace(target)
         }
     }
 
     private mutating func compareObjects(_ a: NSDictionary, _ b: NSDictionary,
-                                         source: JSONElement) throws -> Comparison {
+                                         source: JSONElement, matchArrays: Bool) throws -> Comparison {
         guard let keysA = Self.objectKeys(a), let keysB = Self.objectKeys(b) else {
             return .unchanged(source)
         }
@@ -360,7 +564,7 @@ struct JSONPatchGenerator {
         for key in common {
             guard let valueA = a.jsonObject(forKey: key.name as NSString),
                   let valueB = b.jsonObject(forKey: key.name as NSString) else { continue }
-            let child = try compare(source: JSONElement(any: valueA), target: JSONElement(any: valueB))
+            let child = try compare(source: JSONElement(any: valueA), target: JSONElement(any: valueB), matchArrays: matchArrays)
             equal = equal && child.isUnchanged
             children.append((key, child))
         }
@@ -385,38 +589,84 @@ struct JSONPatchGenerator {
     }
 
     private mutating func compareArrays(_ a: NSArray, _ b: NSArray,
-                                        source: JSONElement) throws -> Comparison {
-        let count = min(a.count, b.count)
+                                        source: JSONElement, matchArrays: Bool) throws -> Comparison {
+        // A singleton has no useful sequence alignment to discover. Recurse
+        // directly, preserving nested matching without repeatedly probing a deep
+        // chain of one-element arrays.
+        let search = matchArrays && !(a.count == 1 && b.count == 1)
+        let alignment = try search ? ArrayMatching.align(a, b) : ArrayMatching.Result(
+            prefix: 0, suffix: 0, matches: [], usedFallback: !matchArrays, equalityLimited: !matchArrays, work: 0, traceEntries: 0)
+        if a.count == b.count && alignment.prefix == a.count { return .unchanged(source) }
+        var parts: [ArrayPart] = []
         var equal = a.count == b.count
-        var children: [Comparison] = []
-        children.reserveCapacity(count)
-        for index in 0..<count {
-            let child = try compare(source: JSONElement(any: a.jsonObject(at: index)),
-                                    target: JSONElement(any: b.jsonObject(at: index)))
-            equal = equal && child.isUnchanged
-            children.append(child)
+        var safePrefix = a.count
+        func keep(_ range: Range<Int>, target: Int) {
+            if !range.isEmpty { parts.append(.keep(source: range, target: target)) }
         }
-        if equal { return .unchanged(source) }
-
-        let removals = count..<a.count
-        for index in removals { _ = try JSONElement(any: a.jsonObject(at: index)) }
-        var additions: [JSONElement] = []
-        if a.count < b.count {
-            additions.reserveCapacity(b.count - a.count)
-            for index in a.count..<b.count {
-                additions.append(try JSONElement(any: b.jsonObject(at: index)))
+        func changedLength(sourceCount: Int, targetCount: Int, targetStart: Int) {
+            if sourceCount != targetCount {
+                equal = false
+                safePrefix = min(safePrefix, targetStart + min(sourceCount, targetCount))
             }
         }
-        for value in additions {
-            if mayBenefitFromCopy(value) { copyQueryCount += 1 }
+        // Unmatched runs use recursive positional edits, pairing replacements
+        // before emitting excess removals/insertions. This preserves leaf edits
+        // instead of turning every substitution into remove + add.
+        func gap(_ old: Range<Int>, _ new: Range<Int>) throws {
+            changedLength(sourceCount: old.count, targetCount: new.count, targetStart: new.lowerBound)
+            let paired = min(old.count, new.count)
+            for offset in 0..<paired {
+                let i = old.lowerBound + offset
+                let j = new.lowerBound + offset
+                let child = try compare(source: JSONElement(any: a.jsonObject(at: i)),
+                                        target: JSONElement(any: b.jsonObject(at: j)),
+                                        matchArrays: matchArrays && !alignment.usedFallback)
+                equal = equal && child.isUnchanged
+                parts.append(.change(source: i, target: j, comparison: child))
+            }
+            if old.count > paired {
+                let indices = (new.lowerBound + paired)..<(new.lowerBound + old.count)
+                parts.append(.remove(indices))
+                for index in (old.lowerBound + paired)..<old.upperBound {
+                    _ = try JSONElement(any: a.jsonObject(at: index))
+                }
+            }
+            if new.count > paired {
+                for index in (new.lowerBound + paired)..<new.upperBound {
+                    let value = try JSONElement(any: b.jsonObject(at: index))
+                    if mayBenefitFromCopy(value) { copyQueryCount += 1 }
+                    parts.append(.insert(index: index, value: value, append: old.upperBound == a.count))
+                }
+            }
         }
-        return .array(removals: removals, additions: additions, children: children)
+        keep(0..<alignment.prefix, target: 0)
+        var oldCursor = alignment.prefix
+        var newCursor = alignment.prefix
+        var matchIndex = 0
+        while matchIndex < alignment.matches.count {
+            let first = alignment.matches[matchIndex]
+            try gap(oldCursor..<first.source, newCursor..<first.target)
+            var length = 1
+            while matchIndex + length < alignment.matches.count {
+                let next = alignment.matches[matchIndex + length]
+                if next.source != first.source + length || next.target != first.target + length { break }
+                length += 1
+            }
+            keep(first.source..<(first.source + length), target: first.target)
+            oldCursor = first.source + length
+            newCursor = first.target + length
+            matchIndex += length
+        }
+        try gap(oldCursor..<(a.count - alignment.suffix), newCursor..<(b.count - alignment.suffix))
+        keep((a.count - alignment.suffix)..<a.count, target: b.count - alignment.suffix)
+        if equal { return .unchanged(source) }
+        return .array(ArrayPlan(source: a, parts: parts, copySourcePrefix: safePrefix))
     }
 
-    private mutating func plan(pointer: JSONPointer, comparison: Comparison) {
+    private mutating func plan(pointer: JSONPointer, comparison: Comparison, allowCopySources: Bool = true) throws {
         switch comparison {
         case .unchanged(let value):
-            if copyQueryCount > 0 {
+            if allowCopySources && copyQueryCount > 0 {
                 let source = CopySource(path: pointer, value: value)
                 shortestSourceBytes = min(shortestSourceBytes, source.encodedBytes)
                 unchanged.append(source)
@@ -432,21 +682,28 @@ struct JSONPatchGenerator {
             for (key, value) in additions {
                 operations.append(.add(path: pointer.appended(withComponent: key.name), value: value))
             }
-            for (key, child) in children where copyQueryCount > 0 || !child.isUnchanged {
-                plan(pointer: pointer.appended(withComponent: key.name), comparison: child)
+            for (key, child) in children where (allowCopySources && copyQueryCount > 0) || !child.isUnchanged {
+                try plan(pointer: pointer.appended(withComponent: key.name), comparison: child, allowCopySources: allowCopySources)
             }
-        case .array(let removals, let additions, let children):
-            // Only remove the tail and append; stable source indices do not move.
-            // Array matching or reordered edits must revisit this invariant.
-            for index in removals.reversed() {
-                operations.append(.remove(path: pointer.appended(withIndex: index)))
-            }
-            for (index, child) in children.enumerated() where copyQueryCount > 0 || !child.isUnchanged {
-                plan(pointer: pointer.appended(withIndex: index), comparison: child)
-            }
-            if !additions.isEmpty {
-                let appendPointer = pointer.appended(withComponent: "-")
-                for value in additions { operations.append(.add(path: appendPointer, value: value)) }
+        case .array(let array):
+            for part in array.parts {
+                switch part {
+                case .keep(let range, let target):
+                    if allowCopySources && copyQueryCount > 0 && range.lowerBound == target {
+                        for index in range where index < array.copySourcePrefix {
+                            let value = try JSONElement(any: array.source.jsonObject(at: index))
+                            try plan(pointer: pointer.appended(withIndex: index), comparison: .unchanged(value))
+                        }
+                    }
+                case .change(let source, let target, let child):
+                    let safe = allowCopySources && source == target && source < array.copySourcePrefix
+                    try plan(pointer: pointer.appended(withIndex: target), comparison: child, allowCopySources: safe)
+                case .remove(let indices):
+                    for index in indices.reversed() { operations.append(.remove(path: pointer.appended(withIndex: index))) }
+                case .insert(let index, let value, let append):
+                    let path = append ? pointer.appended(withComponent: "-") : pointer.appended(withIndex: index)
+                    operations.append(.add(path: path, value: value))
+                }
             }
         }
     }
@@ -496,8 +753,8 @@ struct JSONPatchGenerator {
             if source.encodedBytes != shortestSourceBytes {
                 guard let size = literalSize(value, limit: source.encodedBytes), size > source.encodedBytes else { continue }
             }
-            // Resolution replaces the add in place. Only maximal unchanged
-            // sources participate, so the stage 2 sequential-path invariant holds.
+            // Resolution replaces the add in place. Only maximal unchanged,
+            // unshifted sources participate and remain valid throughout the patch.
             operations[index] = .copy(from: source.path, path: path)
         }
     }

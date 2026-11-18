@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Count stage 3 copy work in a temporary instrumented library, outside timing runs."""
+"""Count copy and array work in a temporary instrumented library, outside timing runs."""
 from __future__ import annotations
 
 import argparse
@@ -88,15 +88,26 @@ def instrument(source):
                           "            Self.diagnosticMatches += 1\n            if source.encodedBytes != shortestSourceBytes {")
     source = replace_once(source, "            operations[index] = .copy(from: source.path, path: path)\n        }",
                           '            operations[index] = .copy(from: source.path, path: path)\n        }\n        Self.diagnostic["built_index"] = lookup.builtIndex\n        Self.diagnostic["linear_comparisons"] = lookup.linearComparisons')
+    source = replace_once(source, "        if a.count == b.count && alignment.prefix == a.count {", """        var arrayStats = Self.diagnostic["array_matching"] as? [[String: Int]] ?? []
+        arrayStats.append(["source_count": a.count, "target_count": b.count,
+                           "searched": search ? 1 : 0, "fallback": alignment.usedFallback ? 1 : 0,
+                           "equality_limited": alignment.equalityLimited ? 1 : 0,
+                           "prefix": alignment.prefix, "suffix": alignment.suffix,
+                           "middle_anchors": alignment.matches.count, "work": alignment.work,
+                           "trace_entries": alignment.traceEntries])
+        Self.diagnostic["array_matching"] = arrayStats
+        if a.count == b.count && alignment.prefix == a.count {""")
     return source
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--case", action="append", default=[], help="Case substring or glob; repeat for a union")
+    parser.add_argument("--include-arrays", action="store_true", help="Also diagnose array and repository-fixture cases")
     parser.add_argument("--output", type=pathlib.Path, default=support.ROOT / "Benchmarks/Results/stage3-diagnostics.json")
     args = parser.parse_args()
-    cases = [c for c in support.corpus("full") if c["family"] in ("copies", "encoding")]
+    families = ("copies", "encoding", "arrays", "fixtures") if args.include_arrays else ("copies", "encoding")
+    cases = [c for c in support.corpus("full") if c["family"] in families]
     if args.case:
         cases = [c for c in cases if any(p in c["id"] or fnmatch.fnmatchcase(c["id"], p) for p in args.case)]
     if not cases:

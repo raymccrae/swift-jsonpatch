@@ -18,7 +18,7 @@ import zlib
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 SCHEMA = 1
-CORPUS_VERSION = 2
+CORPUS_VERSION = 3
 SEED = 1729
 MODES = ("parse", "generate", "serialize", "apply-inplace", "apply-copy", "generate-serialize", "roundtrip")
 FLAGS = ("same-reference", "source-mutable", "target-mutable")
@@ -69,7 +69,28 @@ def corpus(profile="quick"):
             "rotate": array[1:] + array[:1], "reverse": array[::-1],
         }
         for edit, target in edits.items():
-            add("arrays", f"{edit}-n{n}", array, target, n == 1000 and edit == "prepend")
+            add("arrays", f"{edit}-n{n}", array, target, n == 1000 and edit in ("prepend", "insert", "delete", "rotate"))
+    array = list(range(1000))
+    add("arrays", "two-inserts-n1000", array,
+        array[:250] + [-1] + array[250:750] + [-2] + array[750:], True)
+    add("arrays", "unrelated-n1000", array, list(range(-1000, 0)), True)
+    duplicate = [i % 7 for i in range(1000)]
+    add("arrays", "duplicate-rotate-n1000", duplicate, duplicate[1:] + duplicate[:1], True)
+    add("arrays", "unchanged-n10000", list(range(10000)), list(range(10000)))
+    for n in (100, 1000):
+        objects = [{"id": f"row-{i:04d}", "body": "x" * 256, "nested": [i, True]} for i in range(n)]
+        first = {"id": "new", "body": "x" * 256, "nested": [-1, False]}
+        add("arrays", f"object-prepend-n{n}", objects, [first] + objects, n == 100)
+    payload = "payload" * 1000
+    add("arrays", "donor-invalidated-by-prepend", [[payload, 1, 2], []], [[0, payload, 1, 2], [payload]])
+    add("arrays", "safe-prefix-donor-insert", [[payload, 1, 2], []], [[payload, 0, 1, 2], [payload]])
+    add("arrays", "matching-semantic-boundaries",
+        b'[true,9007199254740992,{"\\u00e9":1,"e\\u0301":2}]',
+        b'[0,true,9007199254740993,{"\\u00e9":2,"e\\u0301":1}]')
+    first, second = 1, 2
+    for _ in range(64):
+        first, second = [first], [second]
+    add("arrays", "deep-chain-64", first, second, True)
     for depth in (8, 64):
         first, second = {"value": 1}, {"value": 2}
         for _ in range(depth):
@@ -87,7 +108,7 @@ def corpus(profile="quick"):
     add("encoding", "equivalent-candidates", {f"k{i}": "same" for i in range(100)},
         dict({f"k{i}": "same" for i in range(100)}, added="same"))
     # Copy lookup must cover hits, misses, bounded-fingerprint collisions, and
-    # index setup. Compare every library revision with this same v2 corpus.
+    # index setup. Compare every library revision with the same corpus.
     for kind in ("string", "array", "object", "numeric-array", "numeric-object", "prefix-collision"):
         n = 64 if kind in ("string", "prefix-collision") else 32
         values = []
