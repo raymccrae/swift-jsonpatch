@@ -51,7 +51,13 @@ jobs:
         run: |
           python3 Scripts/test-patch-generation-benchmarks.py
           swift test --package-path Benchmarks -Xswiftc -warnings-as-errors
-      - name: Validate quick corpus in all mutability combinations
+      - name: Validate current default and preferSmallerPatch policies
+        env:
+          BENCHMARK_PROFILE: ${{ inputs.profile || 'quick' }}
+        run: >-
+          python3 Scripts/validate-patch-generation-candidate.py
+          --profile "$BENCHMARK_PROFILE"
+      - name: Validate v2.0.0 quick corpus in all mutability combinations
         run: python3 Scripts/benchmark-patch-generation.py --validate-only --library-ref v2.0.0 --output Benchmarks/Results/validation
       - name: Measure v2.0.0 baseline and baseline noise
         env:
@@ -74,6 +80,8 @@ jobs:
         with:
           name: patch-generation-${{ matrix.os }}-${{ matrix.swift || matrix.xcode }}
           path: |
+            Benchmarks/Results/candidate-validation/**/*.json
+            Benchmarks/Results/candidate-validation/**/*.md
             Benchmarks/Results/validation/*.json
             Benchmarks/Results/validation/*.md
             Benchmarks/Results/reference/*.json

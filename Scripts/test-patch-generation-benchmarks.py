@@ -15,6 +15,9 @@ spec.loader.exec_module(comparison)
 summary_spec = importlib.util.spec_from_file_location("baseline_summary", pathlib.Path(__file__).with_name("summarize-patch-generation-baseline.py"))
 baseline_summary = importlib.util.module_from_spec(summary_spec)
 summary_spec.loader.exec_module(baseline_summary)
+candidate_spec = importlib.util.spec_from_file_location("candidate_validation", pathlib.Path(__file__).with_name("validate-patch-generation-candidate.py"))
+candidate_validation = importlib.util.module_from_spec(candidate_spec)
+candidate_spec.loader.exec_module(candidate_validation)
 
 
 class CorpusTests(unittest.TestCase):
@@ -76,6 +79,53 @@ class CorpusTests(unittest.TestCase):
         a, b = [json.loads(cases["two-leaves-beside-large-payload"][key]) for key in ("source", "target")]
         self.assertEqual(a["stable"], b["stable"])
         self.assertEqual(len(a["stable"]), 1000000)
+
+
+class CandidateValidationTests(unittest.TestCase):
+    def validate(self, codes):
+        commands = []
+        def run(command):
+            commands.append(command)
+            return mock.Mock(returncode=codes[len(commands) - 1])
+        with tempfile.TemporaryDirectory() as directory:
+            output = pathlib.Path(directory) / "reports"
+            with mock.patch.object(candidate_validation.subprocess, "run", side_effect=run):
+                result = candidate_validation.validate("full", output)
+        return result, commands, output
+
+    def test_both_policies_validate_current_source_and_keep_distinct_reports(self):
+        status, commands, output = self.validate([0, 0, 0])
+        self.assertEqual(status, 0)
+        self.assertEqual(len(commands), 3)
+        default, exporter, option = commands
+        for command in (default, option):
+            self.assertIn("--validate-only", command)
+            self.assertEqual(command[command.index("--profile") + 1], "full")
+            self.assertNotIn("--library-ref", command)
+            self.assertNotIn("--baseline-ref", command)
+        self.assertEqual(default[default.index("--library-path") + 1], str(support.ROOT))
+        self.assertIn("prefer-smaller", exporter)
+        self.assertNotIn("--base-ref", exporter)
+        self.assertEqual(exporter[exporter.index("--output") + 1], option[option.index("--library-path") + 1])
+        self.assertEqual(default[default.index("--output") + 1], str(output / "default"))
+        self.assertEqual(option[option.index("--output") + 1], str(output / "prefer-smaller"))
+
+    def test_each_policy_failure_blocks_success_and_default_failure_still_runs_option(self):
+        for codes in ([1, 0, 0], [0, 0, 1]):
+            status, commands, _ = self.validate(codes)
+            self.assertEqual(status, 1)
+            self.assertEqual(len(commands), 3)
+
+    def test_adapter_failure_cannot_be_reported_as_option_success(self):
+        status, commands, _ = self.validate([0, 1])
+        self.assertEqual(status, 1)
+        self.assertEqual(len(commands), 2)
+
+    def test_workflow_runs_candidate_validation_and_uploads_both_policy_reports(self):
+        workflow = (support.ROOT / ".github/workflows/patch-generation-benchmarks.yml").read_text()
+        self.assertIn("python3 Scripts/validate-patch-generation-candidate.py", workflow)
+        for extension in ("json", "md"):
+            self.assertIn(f"Benchmarks/Results/candidate-validation/**/*.{extension}", workflow)
 
 
 class ProcessTests(unittest.TestCase):

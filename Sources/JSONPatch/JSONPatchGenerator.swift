@@ -544,12 +544,30 @@ struct JSONPatchGenerator {
         static let maximumDepth = 16
         static let maximumPointerDepth = 32
 
+        static func boundedUTF8Count<Bytes: Sequence>(_ bytes: Bytes, limit: Int) -> Int? where Bytes.Element == UInt8 {
+            guard limit >= 0 else { return nil }
+            var count = 0
+            for _ in bytes {
+                guard count < limit else { return nil }
+                count += 1
+            }
+            return count
+        }
+
         private static func pointerSize(_ pointer: JSONPointer, limit: Int) -> Int? {
             guard pointer.count <= maximumPointerDepth, limit >= 2 else { return nil }
             var minimum = 2
             for token in pointer {
-                let bytes = token.utf8.count
-                guard bytes <= limit - minimum else { return nil }
+                let bytes: Int
+                if token.isContiguousUTF8 {
+                    // Native UTF-8 stores its byte count; no traversal is needed.
+                    bytes = token.utf8.count
+                    guard bytes <= limit - minimum else { return nil }
+                } else {
+                    // Foreign UTF-16 storage may need a full scan for .utf8.count.
+                    guard let count = boundedUTF8Count(token.utf8, limit: limit - minimum) else { return nil }
+                    bytes = count
+                }
                 minimum += bytes
             }
             let bytes = CopyCost.stringSize(pointer.string, limit: limit)

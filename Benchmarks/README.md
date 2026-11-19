@@ -98,9 +98,12 @@ Run the harness tests and the full correctness matrix with:
 python3 Scripts/test-patch-generation-benchmarks.py
 swift test --package-path Benchmarks -Xswiftc -warnings-as-errors
 python3 Scripts/benchmark-patch-generation.py --profile full --validate-only
+python3 Scripts/validate-patch-generation-candidate.py --profile full
 ```
 
-The benchmark workflow tests the harness on Swift 6.0.3 and 6.2 Linux, and Xcode 16.2 and 26.3 macOS. It validates the quick mutability matrix, captures a v2.0.0 baseline and noise sample, and uploads reports even after failures. Full runs are available through `workflow_dispatch`. Hosted-runner timing is informational. Repeat on a consistent idle machine before assessing regressions.
+The candidate-validation command checks both current policies in all four mutability combinations. It uses the working library for the default and a temporary `prefer-smaller` adapter for the public option, with no release revision selected. Reports go to `Benchmarks/Results/candidate-validation/default/` and `prefer-smaller/`. Both policies are attempted if the default fails; either validation failure or an adapter-export failure makes the command fail.
+
+The benchmark workflow is configured for Swift 6.0.3 and 6.2 Linux, and Xcode 16.2 and 26.3 macOS. It runs candidate validation for both policies, separately validates v2.0.0, captures the release baseline/noise, and uploads reports even after failures. Candidate validation uses the quick corpus by default and the full corpus for a full `workflow_dispatch` run. Hosted-runner timing is informational. Repeat on a consistent idle machine before assessing regressions.
 
 Curated reference summaries and their reproduction details belong in [Baselines](Baselines/README.md). Retain raw reports as artifacts. A reference run is an observation on its recorded machine, not a portable performance promise.
 

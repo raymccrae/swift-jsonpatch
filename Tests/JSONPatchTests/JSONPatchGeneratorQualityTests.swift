@@ -1,6 +1,7 @@
 // Copyright © 2026 Raymond McCrae. Licensed under the Apache License, Version 2.0.
 
 import Foundation
+import CoreFoundation
 import Testing
 @testable import JSONPatch
 
@@ -437,6 +438,49 @@ struct JSONPatchCopyIndexTests {
 }
 
 struct JSONPatchAdaptiveGenerationTests {
+    @Test func pointerBytePreflightStopsAtItsBudget() {
+        #expect(JSONPatchGenerator.ReplacementCost.boundedUTF8Count([UInt8](), limit: 0) == 0)
+        #expect(JSONPatchGenerator.ReplacementCost.boundedUTF8Count([1, 2, 3] as [UInt8], limit: 3) == 3)
+        #expect(JSONPatchGenerator.ReplacementCost.boundedUTF8Count([1, 2, 3] as [UInt8], limit: 4) == 3)
+        for limit in [0, 1, 64, 65_536] {
+            var reads = 0
+            let bytes = AnySequence<UInt8> {
+                AnyIterator {
+                    reads += 1
+                    return reads <= limit + 100 ? UInt8(0x61) : nil
+                }
+            }
+            #expect(JSONPatchGenerator.ReplacementCost.boundedUTF8Count(bytes, limit: limit) == nil)
+            #expect(reads == limit + 1)
+        }
+    }
+
+    @Test func foreignPointerSizesRemainExactAndRejectOversizedNames() throws {
+        func token(_ count: Int) -> String {
+            let units = [UniChar](repeating: 0x4E00, count: count)
+            let string = units.withUnsafeBufferPointer { CFStringCreateWithCharacters(nil, $0.baseAddress, count)! }
+            return unsafeBitCast(string, to: NSString.self) as String
+        }
+        let short = JSONPointer.wholeDocument.appended(withComponent: token(8)).appended(withComponent: "/~\"\n")
+        for operation: JSONPatch.Operation in [.remove(path: short), .copy(from: short, path: .wholeDocument)] {
+            let expected = try JSONPatch(operations: [operation]).data().count - 2
+            #expect(JSONPatchGenerator.ReplacementCost.operationSize(operation, limit: expected) == expected)
+            #expect(JSONPatchGenerator.ReplacementCost.operationSize(operation, limit: expected - 1) == nil)
+        }
+        let long = token(1_000_000)
+        // Darwin preserves foreign UTF-16 storage here; other platforms may bridge eagerly.
+        let pointer = JSONPointer.wholeDocument.appended(withComponent: long)
+        var iterator = long.utf8.makeIterator()
+        var reads = 0
+        let counted = AnySequence<UInt8> {
+            AnyIterator { reads += 1; return iterator.next() }
+        }
+        #expect(JSONPatchGenerator.ReplacementCost.boundedUTF8Count(counted, limit: 64) == nil)
+        #expect(reads == 65)
+        #expect(JSONPatchGenerator.ReplacementCost.operationSize(.remove(path: pointer), limit: 64) == nil)
+        #expect(JSONPatchGenerator.ReplacementCost.operationSize(.copy(from: pointer, path: .wholeDocument), limit: 64) == nil)
+    }
+
     @Test func smallerPatchOptionCompactsPartialChanges() throws {
         let source = "{" + (0..<100).map { "\"k\($0)\":\($0)" }.joined(separator: ",") + "}"
         let target = "{" + (0..<100).map { "\"k\($0)\":\($0 < 90 ? $0 + 100 : $0)" }.joined(separator: ",") + "}"
