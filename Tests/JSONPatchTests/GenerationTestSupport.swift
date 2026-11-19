@@ -315,7 +315,8 @@ struct JSONSerializationLiteralKeyTests {
         ]))
         #expect(try GenerationJSON(source) == GenerationJSON.parse(#"{"edit":[{"é":1,"e\u0301":2}],"keep":[{"é":3,"e\u0301":4}]}"#))
         let unchanged = try JSONElement(any: result).evaluate(pointer: JSONPointer(string: "/keep")).rawValue as AnyObject
-        #expect(unchanged === keep)
+        let retainsReference = unchanged === keep
+        #expect(retainsReference)
         let root = try GenerationJSON.read(#"[[{"é":1,"e\u0301":2}]]"#)
         let arrayPatch = JSONPatch(operations: [.replace(
             path: try JSONPointer(string: "/0/0/é"), value: JSONElement(6))])
