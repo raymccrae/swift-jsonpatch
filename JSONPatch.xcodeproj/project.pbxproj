@@ -7,6 +7,9 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		A80000000000000000000002 /* JSONSerialization+LiteralKeys.swift in Sources */ = {isa = PBXBuildFile; fileRef = A80000000000000000000001 /* JSONSerialization+LiteralKeys.swift */; };
+		A80000000000000000000003 /* JSONSerialization+LiteralKeys.swift in Sources */ = {isa = PBXBuildFile; fileRef = A80000000000000000000001 /* JSONSerialization+LiteralKeys.swift */; };
+		A80000000000000000000004 /* JSONSerialization+LiteralKeys.swift in Sources */ = {isa = PBXBuildFile; fileRef = A80000000000000000000001 /* JSONSerialization+LiteralKeys.swift */; };
 		A70000000000000000000006 /* JSONPatchGeneratorGeneratedTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A70000000000000000000005 /* JSONPatchGeneratorGeneratedTests.swift */; };
 		A70000000000000000000004 /* JSONPatchGeneratorQualityTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A70000000000000000000003 /* JSONPatchGeneratorQualityTests.swift */; };
 		A70000000000000000000002 /* GenerationTestSupport.swift in Sources */ = {isa = PBXBuildFile; fileRef = A70000000000000000000001 /* GenerationTestSupport.swift */; };
@@ -82,6 +85,7 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		A80000000000000000000001 /* JSONSerialization+LiteralKeys.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "JSONSerialization+LiteralKeys.swift"; sourceTree = "<group>"; };
 		A70000000000000000000005 /* JSONPatchGeneratorGeneratedTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JSONPatchGeneratorGeneratedTests.swift; sourceTree = "<group>"; };
 		A70000000000000000000003 /* JSONPatchGeneratorQualityTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JSONPatchGeneratorQualityTests.swift; sourceTree = "<group>"; };
 		A70000000000000000000001 /* GenerationTestSupport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GenerationTestSupport.swift; sourceTree = "<group>"; };
@@ -184,6 +188,7 @@
 				4D22EB27219878DC00729769 /* JSONPatch.swift */,
 				4D0AF30521987C8900E7F86B /* JSONPointer.swift */,
 				4DF8B18521B1C5E700CAABEE /* JSONPatchGenerator.swift */,
+				A80000000000000000000001 /* JSONSerialization+LiteralKeys.swift */,
 				4DDA51EA219AAD8D00BA7704 /* NSArray+DeepCopy.swift */,
 				4DDA51EC219AADE000BA7704 /* NSDictionary+DeepCopy.swift */,
 				4D836964219C0909003A38FE /* JSONEquality.swift */,
@@ -425,6 +430,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				89110291313EC01438C426EA /* NSDictionary+DeepCopy.swift in Sources */,
+				A80000000000000000000002 /* JSONSerialization+LiteralKeys.swift in Sources */,
 				6DD9CA5B0D91F3084F60B6B0 /* JSONError.swift in Sources */,
 				B58DB705B8ABB00E8E1A4426 /* NSArray+DeepCopy.swift in Sources */,
 				B002CA7019A880C1D047F4E1 /* JSONPatchGenerator.swift in Sources */,
@@ -442,6 +448,7 @@
 			files = (
 				4D0AF30221987BA100E7F86B /* JSONError.swift in Sources */,
 				4DDA51ED219AADE000BA7704 /* NSDictionary+DeepCopy.swift in Sources */,
+				A80000000000000000000003 /* JSONSerialization+LiteralKeys.swift in Sources */,
 				4DDA51EB219AAD8D00BA7704 /* NSArray+DeepCopy.swift in Sources */,
 				4D0AF30421987C0A00E7F86B /* JSONElement.swift in Sources */,
 				4DF8B18621B1C5E700CAABEE /* JSONPatchGenerator.swift in Sources */,
@@ -477,6 +484,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				F0E577AD230F4757001D1DD1 /* NSDictionary+DeepCopy.swift in Sources */,
+				A80000000000000000000004 /* JSONSerialization+LiteralKeys.swift in Sources */,
 				F0E577A8230F474F001D1DD1 /* JSONError.swift in Sources */,
 				F0E577AC230F4757001D1DD1 /* NSArray+DeepCopy.swift in Sources */,
 				F0E577AB230F4757001D1DD1 /* JSONPatchGenerator.swift in Sources */,

@@ -212,7 +212,7 @@ func assertGeneratedPatch(
                 #expect(try GenerationJSON(target.rawValue) == expectedTarget, detail, sourceLocation: sourceLocation)
                 let patch = try JSONPatch(source: source, target: target, generationOptions: generationOptions)
                 let data = try patch.data()
-                let encodedBefore = try GenerationJSON(JSONSerialization.jsonObject(with: data))
+                let encodedBefore = try GenerationJSON(FixtureJSON.read(data))
                 let decoded = try JSONPatch(data: data)
                 #expect(try GenerationJSON(source.rawValue) == expectedSource, detail, sourceLocation: sourceLocation)
                 #expect(try GenerationJSON(target.rawValue) == expectedTarget, detail, sourceLocation: sourceLocation)
@@ -228,9 +228,9 @@ func assertGeneratedPatch(
                     #expect(try GenerationJSON(source.rawValue) == expectedSource, detail, sourceLocation: sourceLocation)
                 }
                 #expect(try GenerationJSON(target.rawValue) == expectedTarget, detail, sourceLocation: sourceLocation)
-                #expect(try GenerationJSON(JSONSerialization.jsonObject(with: patch.data())) == encodedBefore,
+                #expect(try GenerationJSON(FixtureJSON.read(patch.data())) == encodedBefore,
                         detail, sourceLocation: sourceLocation)
-                #expect(try GenerationJSON(JSONSerialization.jsonObject(with: decoded.data())) == encodedBefore,
+                #expect(try GenerationJSON(FixtureJSON.read(decoded.data())) == encodedBefore,
                         detail, sourceLocation: sourceLocation)
             } catch {
                 throw GenerationCheckFailure(description: "\(detail.rawValue): \(error)")
@@ -255,9 +255,13 @@ struct GenerationJSONTests {
         ])
         let raw = try GenerationJSON.read(json, mutable: mutable)
         #expect((raw is NSMutableDictionary) == mutable)
+        let element = try JSONElement(any: raw)
+        for path in ["/é", "/é/0", "/e\u{0301}"] {
+            #expect(try element.evaluate(pointer: JSONPointer(string: path)).isMutable == mutable)
+        }
         #expect(try GenerationJSON(raw) == expected)
         #expect(try GenerationJSON.parse(expected.json()) == expected)
-        let bytes = try JSONSerialization.data(withJSONObject: raw)
+        let bytes = try JSONSerialization.data(with: JSONElement(any: raw))
         #expect(try GenerationJSON(FixtureJSON.read(bytes, mutable: mutable)) == expected)
     }
 
@@ -289,5 +293,93 @@ struct GenerationJSONTests {
         #expect(entries.count == 3)
         #expect(try value == GenerationJSON(GenerationJSON.read(literal, mutable: true)))
         #expect(try value == GenerationJSON.parse(value.json()))
+    }
+}
+
+
+struct JSONSerializationLiteralKeyTests {
+    private let json = #"{"é":true,"e\u0301":9007199254740993,"nested":[{"é":1,"é":2}],"é/":"quote \" : é"}"#
+    private var expected: GenerationJSON {
+        .dictionary([
+            ("é", .boolean(true)), ("e\u{0301}", .number(Decimal(string: "9007199254740993")!)),
+            ("nested", .array([.dictionary([("é", .number(1)), ("e\u{0301}", .number(2))])])),
+            ("é/", .text("quote \" : e\u{0301}"))
+        ])
+    }
+
+    @Test(arguments: ["utf8", "utf8-bom", "utf16le", "utf16le-bom", "utf16be", "utf16be-bom",
+                      "utf32le", "utf32le-bom", "utf32be", "utf32be-bom"], [false, true])
+    func unicodeKeysSurviveEveryInputEncoding(encoding: String, mutable: Bool) throws {
+        let name = encoding.replacingOccurrences(of: "-bom", with: "")
+        var data = Data(json.utf8)
+        if name != "utf8" {
+            let units = name.hasPrefix("utf16") ? json.utf16.map(UInt32.init) : json.unicodeScalars.map(\.value)
+            var shifts = name.hasPrefix("utf16") ? [0, 8] : [0, 8, 16, 24]
+            if name.hasSuffix("be") { shifts.reverse() }
+            data = Data(units.flatMap { unit in shifts.map { UInt8(truncatingIfNeeded: unit >> $0) } })
+        }
+        if encoding.hasSuffix("-bom") {
+            let markers: [String: [UInt8]] = ["utf8": [239, 187, 191], "utf16le": [255, 254],
+                "utf16be": [254, 255], "utf32le": [255, 254, 0, 0], "utf32be": [0, 0, 254, 255]]
+            data = Data(markers[name]!) + data
+        }
+        let options: JSONSerialization.ReadingOptions = mutable ? [.mutableContainers] : []
+        let raw = try JSONSerializationSupport.objectPreservingKeys(with: data, options: options)
+        #expect(try GenerationJSON(raw) == expected)
+        #expect((raw is NSMutableDictionary) == mutable)
+        #expect(try GenerationJSON(JSONSerialization.jsonElement(with: data, options: options).rawValue) == expected)
+    }
+
+    @Test(arguments: [UInt(0), JSONSerialization.WritingOptions.prettyPrinted.rawValue,
+                      JSONSerialization.WritingOptions.sortedKeys.rawValue,
+                      JSONSerialization.WritingOptions.withoutEscapingSlashes.rawValue,
+                      JSONSerialization.WritingOptions([.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]).rawValue])
+    func unicodeKeysSurviveWritingOptions(flags: UInt) throws {
+        let options = JSONSerialization.WritingOptions(rawValue: flags)
+        let raw = try GenerationJSON.read(json)
+        let data = try JSONSerializationSupport.dataPreservingKeys(with: raw, options: options)
+        #expect(try GenerationJSON(FixtureJSON.read(data)) == expected)
+        #expect(try GenerationJSON(FixtureJSON.read(JSONSerialization.data(with: JSONElement(any: raw), options: options))) == expected)
+        if options.contains(.prettyPrinted) { #expect(data.contains(10)) }
+        if options.contains(.withoutEscapingSlashes) { #expect(data.range(of: Data("\\/".utf8)) == nil) }
+    }
+
+    @Test func sortedKeysAndScalarValuesMatchFoundation() throws {
+        let raw = try GenerationJSON.read(#"{"z":null,"a10":1,"a2":true,"é/":"x/y","A":"\\\""}"#)
+        let options: JSONSerialization.WritingOptions = [.sortedKeys, .prettyPrinted, .withoutEscapingSlashes]
+        #expect(try JSONSerializationSupport.dataPreservingKeys(with: raw, options: options)
+                == JSONSerialization.data(withJSONObject: raw, options: options))
+        for json in ["true", "false", "null", "9007199254740993", "18446744073709551615", "1.25", #""é/e\u0301""#] {
+            let raw = try GenerationJSON.read(json)
+            #expect(try JSONSerializationSupport.dataPreservingKeys(with: raw, options: [.fragmentsAllowed])
+                    == JSONSerialization.data(withJSONObject: raw, options: [.fragmentsAllowed]))
+        }
+    }
+
+    @Test func publicDataPathsAndSnapshotsKeepLiteralKeys() throws {
+        let source = Data(#"{"é":1,"e\u0301":2}"#.utf8)
+        let target = Data(#"{"é":3,"e\u0301":4}"#.utf8)
+        let expected = GenerationJSON.dictionary([("é", .number(3)), ("e\u{0301}", .number(4))])
+        for policy: [JSONPatch.GenerationOption] in [[], [.preferSmallerPatch]] {
+            let patch = try JSONPatch(source: source, target: target, generationOptions: policy)
+            let decoded = try JSONPatch(data: patch.data())
+            for reading: JSONSerialization.ReadingOptions in [[], [.mutableContainers]] {
+                let result = try decoded.apply(to: source, readingOptions: reading)
+                #expect(try GenerationJSON(FixtureJSON.read(result)) == expected)
+            }
+        }
+        let snapshot = try JSONError.Value(jsonObject: GenerationJSON.read(String(decoding: target, as: UTF8.self)))
+        #expect(try GenerationJSON(snapshot.jsonObject()) == expected)
+        #expect(try GenerationJSON(FixtureJSON.read(snapshot.data)) == expected)
+    }
+
+    @Test func originalSyntaxAndFragmentOptionsStillApply() throws {
+        for json in [#"{"é":"\q"}"#, #"{"é":01}"#, #"{"é":1}false"#, #""é""#] {
+            #expect(throws: (any Error).self) {
+                try JSONSerializationSupport.objectPreservingKeys(with: Data(json.utf8), options: [])
+            }
+        }
+        #expect(try GenerationJSON(JSONSerializationSupport.objectPreservingKeys(
+            with: Data(#""é""#.utf8), options: [.fragmentsAllowed])) == .text("é"))
     }
 }

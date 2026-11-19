@@ -11,6 +11,8 @@ The implementation uses the [JSON Patch Tests](https://github.com/json-patch/jso
 
 Use Swift 6.0 or later. Apple development requires Xcode 16 or later.
 The library supports macOS 10.15+, iOS 13+, tvOS 13+, watchOS 6+, and Linux.
+
+On Linux, the library's Data APIs and `JSONSerialization` extensions preserve literal Unicode property names, including composed and decomposed spellings in the same object. They protect names around corelibs Foundation's dictionary conversions. Direct calls to Foundation's `jsonObject(with:)` or `data(withJSONObject:)` can still merge those names; use the library's parsing and serialization entry points when retaining their identity matters.
 Tests run on macOS 14+ or iOS/tvOS 17+ hosts; these test requirements do not change the library's deployment targets.
 
 ## Release

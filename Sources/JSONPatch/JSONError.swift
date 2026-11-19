@@ -45,7 +45,7 @@ extension JSONError {
                 throw JSONError.invalidObjectType
             }
             do {
-                data = try JSONSerialization.data(withJSONObject: jsonObject, options: [.fragmentsAllowed])
+                data = try JSONSerializationSupport.data(with: jsonObject, options: [.fragmentsAllowed])
             } catch {
                 throw JSONError.invalidObjectType
             }
@@ -53,7 +53,7 @@ extension JSONError {
 
         /// Decodes a fresh Foundation representation of the snapshot.
         public func jsonObject() throws -> Any {
-            try JSONSerialization.jsonObject(with: data, options: [.fragmentsAllowed])
+            try JSONSerializationSupport.object(with: data, options: [.fragmentsAllowed])
         }
     }
 }

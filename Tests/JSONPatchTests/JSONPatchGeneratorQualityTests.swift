@@ -196,14 +196,14 @@ struct JSONPatchGeneratorQualityTests {
             target["edit"] = revision + 1
             let expectedSource = try GenerationJSON(source)
             let expectedTarget = try GenerationJSON(target)
-            let sourceData = try JSONSerialization.data(withJSONObject: source)
+            let sourceData = try JSONSerialization.data(with: JSONElement(any: source))
             let patch = try JSONPatch(source: .mutableObject(value: source), target: .mutableObject(value: target))
             let actual = try operations(patch)
             #expect(actual.count == 2)
             #expect(try actual.contains(GenerationJSON.parse(#"{"op":"copy","from":"/stable","path":"/added"}"#)))
             #expect(try actual.contains(GenerationJSON.parse("{\"op\":\"replace\",\"path\":\"/edit\",\"value\":\(revision + 1)}")))
             for reusable in [patch, try JSONPatch(data: patch.data())] {
-                let fresh = try JSONSerialization.jsonObject(with: sourceData, options: [.mutableContainers])
+                let fresh = try FixtureJSON.read(sourceData, mutable: true)
                 #expect(try GenerationJSON(reusable.apply(to: fresh)) == expectedTarget)
                 #expect(try GenerationJSON(reusable.apply(to: source, options: [.applyOnCopy])) == expectedTarget)
             }
@@ -228,7 +228,7 @@ struct JSONPatchGeneratorQualityTests {
     }
 
     private func operations(_ patch: JSONPatch) throws -> [GenerationJSON] {
-        let value = try GenerationJSON(JSONSerialization.jsonObject(with: patch.data()))
+        let value = try GenerationJSON(FixtureJSON.read(patch.data()))
         return try #require({ if case .array(let operations) = value { return operations }; return nil }())
     }
 
@@ -306,7 +306,7 @@ struct JSONPatchCopyIndexTests {
         try JSONElement(any: GenerationJSON.read(json, mutable: mutable))
     }
 
-    @Test func boundedLiteralSizesMatchFoundation() throws {
+    @Test func boundedLiteralSizesMatchLibraryEncoding() throws {
         let controls = String(String.UnicodeScalarView((0..<32).map { Unicode.Scalar($0)! }))
         let strings = ["", "/~\\\"", controls, "é/e\u{0301}/🚀", "\u{2028}\u{2029}"]
         var values = try strings.map { try element(GenerationJSON.text($0).json()) }
@@ -322,7 +322,7 @@ struct JSONPatchCopyIndexTests {
                                  NSNumber(value: Float(0.1)), NSNumber(value: -0.0)]
         values += typed.map { .number(value: $0) }
         for value in values {
-            let count = try JSONSerialization.data(withJSONObject: value.rawValue, options: [.fragmentsAllowed]).count
+            let count = try JSONSerialization.data(with: value).count
             for limit in 0...(count + 2) {
                 #expect(JSONPatchGenerator.CopyCost.literalSize(value, limit: limit) == min(count, limit + 1))
             }
@@ -335,7 +335,7 @@ struct JSONPatchCopyIndexTests {
                       JSONElement.number(value: NSNumber(value: Double.greatestFiniteMagnitude)),
                       JSONElement.number(value: NSDecimalNumber(string: "1234567890.123456789"))]
         for value in values {
-            let literalBytes = try JSONSerialization.data(withJSONObject: value.rawValue, options: [.fragmentsAllowed]).count
+            let literalBytes = try JSONSerialization.data(with: value).count
             for sourcePath in ["", "/", "/a", "/~0~1", "/é\n🚀"] {
                 let from = try JSONPointer(string: sourcePath)
                 let source = JSONPatchGenerator.CopySource(path: from, value: value)
@@ -651,7 +651,7 @@ struct JSONPatchArrayGenerationTests {
     ])
     func focusedArrayEdits(source: String, target: String, operations: String) throws {
         try assertGeneratedPatch(source: source, target: target) { (patch: JSONPatch) throws -> Void in
-            let actual = try GenerationJSON(JSONSerialization.jsonObject(with: patch.data()))
+            let actual = try GenerationJSON(FixtureJSON.read(patch.data()))
             #expect(try actual == GenerationJSON.parse(operations))
         }
     }

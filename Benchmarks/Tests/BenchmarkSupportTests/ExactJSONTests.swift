@@ -1,4 +1,5 @@
 import Foundation
+import JSONPatch
 import Testing
 @testable import PatchGenerationBenchmarks
 
@@ -23,8 +24,12 @@ struct ExactJSONTests {
         ])
         let raw = try readJSON(Data(json.utf8), mutable: mutable)
         #expect((raw is NSMutableDictionary) == mutable)
+        let element = try JSONElement(any: raw)
+        for path in ["/é", "/é/0", "/e\u{0301}"] {
+            #expect(try element.evaluate(pointer: JSONPointer(string: path)).isMutable == mutable)
+        }
         #expect(try ExactJSON(raw) == expected)
-        let bytes = try JSONSerialization.data(withJSONObject: raw)
+        let bytes = try JSONSerialization.data(with: JSONElement(any: raw))
         #expect(try ExactJSON(FixtureJSON.read(bytes, mutable: mutable)) == expected)
     }
 

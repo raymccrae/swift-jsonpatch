@@ -130,7 +130,7 @@ final class Worker {
         let bytes = try JSONPatch(source: first, target: second).data()
         let decoded = try JSONPatch(data: bytes)
         let result = try decoded.apply(to: readJSON(sourceData, mutable: true))
-        return try JSONSerialization.data(withJSONObject: result, options: [.fragmentsAllowed])
+        return try JSONSerialization.data(with: JSONElement(any: result), options: [.fragmentsAllowed])
     }
 
     // The result is consumed and temporary outputs are released in this call.

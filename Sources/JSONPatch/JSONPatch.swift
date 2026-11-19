@@ -109,7 +109,7 @@ public class JSONPatch: Codable {
     /// - Parameters:
     ///   - data: The json-patch document as data.
     public convenience init(data: Data) throws {
-        let jsonObject = try JSONSerialization.jsonObject(with: data, options: [])
+        let jsonObject = try JSONSerializationSupport.object(with: data, options: [])
         guard let jsonArray = jsonObject as? NSArray else {
             throw JSONError.invalidPatchFormat
         }
@@ -132,7 +132,7 @@ public class JSONPatch: Codable {
     ///   - option: The writing options.
     /// - Returns: UTF-8 encoded json.
     public func data(options: JSONSerialization.WritingOptions = []) throws -> Data {
-        return try JSONSerialization.data(withJSONObject: jsonArray, options: options)
+        return try JSONSerializationSupport.data(with: jsonArray, options: options)
     }
 
     /// Applies a json-patch to a target json document. Operations are applied
@@ -212,8 +212,8 @@ public class JSONPatch: Codable {
                       readingOptions: JSONSerialization.ReadingOptions = [.mutableContainers],
                       writingOptions: JSONSerialization.WritingOptions = [],
                       applyingOptions: [JSONPatch.ApplyOption] = []) throws -> Data {
-        let jsonObject = try JSONSerialization.jsonObject(with: data,
-                                                          options: readingOptions)
+        let jsonObject = try JSONSerializationSupport.object(with: data,
+                                                              options: readingOptions)
         var jsonElement = try JSONElement(any: jsonObject)
         try jsonElement.apply(patch: self, options: applyingOptions)
         let transformedData = try JSONSerialization.data(with: jsonElement,

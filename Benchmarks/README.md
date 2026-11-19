@@ -96,6 +96,8 @@ Fixture ingestion protects object names before Foundation parses them: names are
 
 The fixture reader runs on both platforms, so parse and round-trip measurements include this support work. Its source is covered by the harness content hash; rerun both revisions with this harness rather than comparing its timings with earlier reports. Input bytes and corpus version 4 are unchanged. Public Data-initializer measurements still exercise the library's own parsing.
 
+The round-trip measurement uses the library's `JSONSerialization.data(with: JSONElement)` extension for the final document too. This keeps its encoding within the library under test. An exported release with lossy Linux wire-format handling can therefore fail correctness checks even when the current candidate passes. Such failures remain failures in the raw reports; they are not speed measurements or evidence against the current generator.
+
 Run the harness tests and the full correctness matrix with:
 
 ```sh

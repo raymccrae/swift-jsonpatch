@@ -550,7 +550,7 @@ extension JSONSerialization {
     ///   - options: The reading options. See jsonObject(with:options:) for supported options.
     /// - Returns: The JSON Element representing the top-level element of the json document.
     public static func jsonElement(with data: Data, options: ReadingOptions) throws -> JSONElement {
-        let jsonObject = try JSONSerialization.jsonObject(with: data, options: options)
+        let jsonObject = try JSONSerializationSupport.object(with: data, options: options)
         return try JSONElement(any: jsonObject)
     }
 
@@ -568,7 +568,7 @@ extension JSONSerialization {
              let .mutableObject(obj as NSObject),
              let .array(obj as NSObject),
              let .mutableArray(obj as NSObject):
-            return try JSONSerialization.data(withJSONObject: obj, options: options)
+            return try JSONSerializationSupport.data(with: obj, options: options)
         default:
             // If the element is not a container then wrap the element in an array and the
             // return the sub-sequence of the result that represents the original element.
