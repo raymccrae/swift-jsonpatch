@@ -81,9 +81,7 @@ indirect enum GenerationJSON: Equatable {
     }
 
     static func read(_ json: String, mutable: Bool = false) throws -> Any {
-        var options: JSONSerialization.ReadingOptions = [.fragmentsAllowed]
-        if mutable { options.insert(.mutableContainers) }
-        return try JSONSerialization.jsonObject(with: Data(json.utf8), options: options)
+        try FixtureJSON.read(Data(json.utf8), mutable: mutable)
     }
 
     static func parse(_ json: String) throws -> Self { try Self(read(json)) }
@@ -110,6 +108,81 @@ indirect enum GenerationJSON: Equatable {
         case .boolean(let value): return value ? "true" : "false"
         case .null: return "null"
         }
+    }
+}
+
+// Foundation's Linux JSON parser passes object names through Swift Dictionary.
+// Encode names as ASCII before parsing, then restore CFString-backed keys. Scalar
+// values still use Foundation's JSON grammar, Boolean identity and number types.
+// This fixture reader deliberately does not call any JSONPatch helpers.
+enum FixtureJSON {
+    enum Invalid: Error { case propertyName }
+
+    static func read(_ data: Data, mutable: Bool = false) throws -> Any {
+        let bytes = Array(data)
+        var encoded = [UInt8]()
+        encoded.reserveCapacity(bytes.count)
+        var position = 0
+        while position < bytes.count {
+            guard bytes[position] == 34 else {
+                encoded.append(bytes[position]); position += 1; continue
+            }
+            let start = position
+            position += 1
+            while position < bytes.count {
+                if bytes[position] == 92 {
+                    position = min(position + 2, bytes.count)
+                } else if bytes[position] == 34 {
+                    position += 1; break
+                } else { position += 1 }
+            }
+            var next = position
+            while next < bytes.count && [9, 10, 13, 32].contains(bytes[next]) { next += 1 }
+            if next < bytes.count && bytes[next] == 58 {
+                let fragment = Data(bytes[start..<position])
+                guard let name = try JSONSerialization.jsonObject(with: fragment, options: [.fragmentsAllowed]) as? String else {
+                    throw Invalid.propertyName
+                }
+                encoded.append(34)
+                encoded.append(contentsOf: Data(name.utf8).base64EncodedString().utf8)
+                encoded.append(34)
+            } else { encoded.append(contentsOf: bytes[start..<position]) }
+        }
+        let parsed = try JSONSerialization.jsonObject(with: Data(encoded), options: [.fragmentsAllowed])
+        return try restore(parsed, mutable: mutable)
+    }
+
+    private static func restore(_ value: Any, mutable: Bool) throws -> Any {
+        if let object = value as? NSDictionary {
+            let raw = unsafeBitCast(object, to: CFDictionary.self)
+            var keys = [UnsafeRawPointer?](repeating: nil, count: object.count)
+            var values = keys
+            CFDictionaryGetKeysAndValues(raw, &keys, &values)
+            let result = NSMutableDictionary(capacity: object.count)
+            for index in keys.indices {
+                let key = Unmanaged<AnyObject>.fromOpaque(keys[index]!).takeUnretainedValue()
+                let item = Unmanaged<AnyObject>.fromOpaque(values[index]!).takeUnretainedValue()
+                guard let encoded = key as? String, let data = Data(base64Encoded: encoded),
+                      let name = String(data: data, encoding: .utf8) else { throw Invalid.propertyName }
+                let characters = Array(name.utf16)
+                let literal = characters.withUnsafeBufferPointer {
+                    CFStringCreateWithCharacters(nil, $0.baseAddress, $0.count)!
+                }
+                result.setObject(try restore(item, mutable: mutable),
+                                 forKey: unsafeBitCast(literal, to: NSString.self))
+            }
+            return mutable ? result : result.copy() as! NSDictionary
+        }
+        if let array = value as? NSArray {
+            let raw = unsafeBitCast(array, to: CFArray.self)
+            let result = NSMutableArray(capacity: array.count)
+            for index in 0..<array.count {
+                let item = Unmanaged<AnyObject>.fromOpaque(CFArrayGetValueAtIndex(raw, index)).takeUnretainedValue()
+                result.add(try restore(item, mutable: mutable))
+            }
+            return mutable ? result : result.copy() as! NSArray
+        }
+        return value
     }
 }
 
@@ -167,6 +240,39 @@ func assertGeneratedPatch(
 }
 
 struct GenerationJSONTests {
+
+    @Test(arguments: [false, true])
+    func fixtureReaderPreservesNestedLiteralAndEscapedKeys(mutable: Bool) throws {
+        let json = #"{"é":[{"\u00e9":true,"e\u0301":9007199254740993,"":null}],"e\u0301":{"w6k=":"quote \" : e\u0301","é":1,"é":2}}"#
+        let expected = GenerationJSON.dictionary([
+            ("é", .array([.dictionary([
+                ("é", .boolean(true)), ("e\u{0301}", .number(Decimal(string: "9007199254740993")!)),
+                ("", .null)
+            ])])),
+            ("e\u{0301}", .dictionary([
+                ("w6k=", .text("quote \" : e\u{0301}")), ("é", .number(1)), ("e\u{0301}", .number(2))
+            ]))
+        ])
+        let raw = try GenerationJSON.read(json, mutable: mutable)
+        #expect((raw is NSMutableDictionary) == mutable)
+        #expect(try GenerationJSON(raw) == expected)
+        #expect(try GenerationJSON.parse(expected.json()) == expected)
+        let bytes = try JSONSerialization.data(withJSONObject: raw)
+        #expect(try GenerationJSON(FixtureJSON.read(bytes, mutable: mutable)) == expected)
+    }
+
+    @Test func fixtureReaderKeepsUnicodeAndTransportNamesDistinct() throws {
+        let raw = try GenerationJSON.read(#"{"\u00e9":2,"é":3,"w6k=":4}"#)
+        #expect(try GenerationJSON(raw) == .dictionary([
+            ("é", .number(2)), ("e\u{0301}", .number(3)), ("w6k=", .number(4))
+        ]))
+    }
+
+    @Test(arguments: ["", #"{"é" 1}"#, #"{"é":"\q"}"#,
+                      #"{"é":"unterminated}"#, #"{"é":01}"#, #"{"é":1} false"#])
+    func fixtureReaderRetainsFoundationSyntaxValidation(json: String) {
+        #expect(throws: (any Error).self) { try GenerationJSON.read(json) }
+    }
     @Test func independentEqualityBoundaries() throws {
         #expect(try GenerationJSON.parse(#"{"a":1,"b":null}"#) == GenerationJSON.parse(#"{"b":null,"a":1.0}"#))
         for (a, b) in [("true", "1"), ("false", "0"), ("9007199254740992", "9007199254740993"),

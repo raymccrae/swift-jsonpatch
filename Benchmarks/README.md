@@ -92,6 +92,10 @@ Corpus version 4 has 36 quick cases and 94 full cases. It retains the earlier co
 
 Before and after timing, an independent comparator checks round trips, source/target preservation, and patch reuse. Its equality is implemented without the generator's helpers: Unicode scalar keys and strings, Boolean/number separation, and decimal comparisons without converting integers through Double. The corpus bounds numbers to values representable by Foundation and Decimal; arbitrary-precision numeric JSON is outside this harness's scope. Comparator regression tests explicitly cover neighboring large integers and composed/decomposed keys. Each mode must succeed; a failure is never interpreted as a fast measurement.
 
+Fixture ingestion protects object names before Foundation parses them: names are temporarily encoded as ASCII, then restored as literal CFString-backed keys in recursively mutable or immutable containers. This prevents corelibs Foundation from merging composed and decomposed names before the independent checks can inspect them. Foundation still validates JSON syntax and parses scalar values. Regression tests check nested containers, mixed literal/escaped names, Boolean and integer identity, transport-name collisions, serialization, and malformed input.
+
+The fixture reader runs on both platforms, so parse and round-trip measurements include this support work. Its source is covered by the harness content hash; rerun both revisions with this harness rather than comparing its timings with earlier reports. Input bytes and corpus version 4 are unchanged. Public Data-initializer measurements still exercise the library's own parsing.
+
 Run the harness tests and the full correctness matrix with:
 
 ```sh

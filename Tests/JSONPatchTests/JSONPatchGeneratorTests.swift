@@ -97,9 +97,13 @@ struct JSONPatchGeneratorTests {
     }
 
     @Test func testUnchangedUnicodeKeys() throws {
-        let data = Data(#"{"\u00e9":1,"e\u0301":2,"nested":[{"e\u0301":3}]}"#.utf8)
-        let source = try JSONSerialization.jsonElement(with: data, options: [])
-        let target = try JSONSerialization.jsonElement(with: data, options: [.mutableContainers])
+        let json = #"{"\u00e9":1,"e\u0301":2,"nested":[{"e\u0301":3}]}"#
+        let source = try JSONElement(any: GenerationJSON.read(json))
+        let target = try JSONElement(any: GenerationJSON.read(json, mutable: true))
+        #expect(try GenerationJSON(source.rawValue) == .dictionary([
+            ("é", .number(1)), ("e\u{0301}", .number(2)),
+            ("nested", .array([.dictionary([("e\u{0301}", .number(3))])]))
+        ]))
         let patch = try JSONPatch(source: source, target: target)
         #expect(patch.operations.isEmpty)
         #expect(try GenerationJSON(source.rawValue) == GenerationJSON(target.rawValue))
