@@ -160,15 +160,17 @@ extension JSONElement {
         switch self {
         case .object(let dictionary):
             #if os(Linux)
-            guard let mutable = dictionary.mutableCopy() as? NSMutableDictionary else {
-                throw JSONError.invalidObjectType
-            }
+            let mutable = dictionary.shallowMutableCopy()
             #else
             let mutable = NSMutableDictionary(dictionary: dictionary)
             #endif
             self = .mutableObject(value: mutable)
         case .array(let array):
+            #if os(Linux)
+            let mutable = array.shallowMutableCopy()
+            #else
             let mutable = NSMutableArray(array: array)
+            #endif
             self = .mutableArray(value: mutable)
         case .mutableObject, .mutableArray:
             break

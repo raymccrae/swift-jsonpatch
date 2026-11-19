@@ -132,6 +132,22 @@ public class JSONPatch: Codable {
     ///   - option: The writing options.
     /// - Returns: UTF-8 encoded json.
     public func data(options: JSONSerialization.WritingOptions = []) throws -> Data {
+        #if os(Linux)
+        // Operation metadata and pointer strings cannot contain object names.
+        // Inspect only container literals before choosing the protected writer.
+        var needsProtection = false
+        for operation in operations {
+            switch operation {
+            case .add(_, let value), .replace(_, let value), .test(_, let value):
+                if value.isContainer, try JSONSerializationSupport.containsUnicodeNames(value.rawValue) {
+                    needsProtection = true
+                }
+            default: break
+            }
+            if needsProtection { break }
+        }
+        if !needsProtection { return try JSONSerialization.data(withJSONObject: jsonArray, options: options) }
+        #endif
         return try JSONSerializationSupport.data(with: jsonArray, options: options)
     }
 

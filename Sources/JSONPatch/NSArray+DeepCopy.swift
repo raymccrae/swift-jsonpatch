@@ -34,6 +34,13 @@ extension NSArray {
         #endif
     }
 
+    // Copy references without converting nested dictionaries to Swift values.
+    func shallowMutableCopy() -> NSMutableArray {
+        let result = NSMutableArray(capacity: count)
+        for index in 0..<count { result.add(jsonObject(at: index)) }
+        return result
+    }
+
     func deepMutableCopy() -> NSMutableArray {
         let result = NSMutableArray(capacity: count)
 

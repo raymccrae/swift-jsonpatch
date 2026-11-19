@@ -42,11 +42,17 @@ jobs:
           fetch-depth: 0
       - if: matrix.swift != ''
         name: Install Python and process tools
-        run: apt-get update && apt-get install -y python3 procps
+        run: |
+          apt-get update && apt-get install -y python3 procps
+          # Checkout configures trust in its temporary HOME. The container's
+          # later shell steps need the same trust for this mounted checkout.
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
       - if: matrix.xcode != ''
         uses: maxim-lobanov/setup-xcode@v1
         with:
           xcode-version: ${{ matrix.xcode }}
+      - name: Verify release reference
+        run: git rev-parse --verify 'v2.0.0^{commit}'
       - name: Harness regression tests
         run: |
           python3 Scripts/test-patch-generation-benchmarks.py

@@ -29,7 +29,16 @@ enum JSONSerializationSupport {
         let utf8 = try utf8Data(data)
         // Foundation still validates the complete original syntax and options.
         let original = try JSONSerialization.jsonObject(with: utf8, options: options)
-        guard utf8.contains(where: { $0 >= 128 || $0 == 92 }) else { return original }
+        guard utf8.withUnsafeBytes({ (bytes: UnsafeRawBufferPointer) in
+            var index = 0
+            while index < bytes.count {
+                if bytes[index] >= 128 || (bytes[index] == 92 && index + 1 < bytes.count && bytes[index + 1] == 117) {
+                    return true
+                }
+                index += 1
+            }
+            return false
+        }) else { return original }
         let names = try propertyNames(in: utf8)
         guard names.contains(where: { $0.name.unicodeScalars.contains(where: { $0.value > 127 }) }) else {
             return original
@@ -106,8 +115,13 @@ enum JSONSerializationSupport {
             var next = index
             while next < bytes.count && [9, 10, 13, 32].contains(bytes[next]) { next += 1 }
             if next < bytes.count && bytes[next] == 58 {
-                guard let name = try JSONSerialization.jsonObject(
-                    with: Data(bytes[start..<index]), options: [.fragmentsAllowed]) as? String else {
+                let contents = bytes[(start + 1)..<(index - 1)]
+                let name: String?
+                if contents.contains(92) {
+                    name = try JSONSerialization.jsonObject(
+                        with: Data(bytes[start..<index]), options: [.fragmentsAllowed]) as? String
+                } else { name = String(bytes: contents, encoding: .utf8) }
+                guard let name else {
                     throw JSONError.invalidObjectType
                 }
                 names.append(PropertyName(range: start..<index, name: name))
@@ -174,14 +188,37 @@ enum JSONSerializationSupport {
         return value
     }
 
-    private static func containsUnicodeNames(_ value: Any, depth: Int) throws -> Bool {
+    static func containsUnicodeNames(_ value: Any, depth: Int = 512) throws -> Bool {
         guard depth > 0 else { throw JSONError.invalidObjectType }
-        if let object = value as? NSDictionary {
-            let entries = try fields(object)
-            if entries.contains(where: { $0.0.unicodeScalars.contains(where: { $0.value > 127 }) }) { return true }
-            for (_, item) in entries where try containsUnicodeNames(item, depth: depth - 1) { return true }
-        } else if let array = value as? NSArray {
-            for item in items(array) where try containsUnicodeNames(item, depth: depth - 1) { return true }
+        let object = value as AnyObject
+        let type = CFGetTypeID(object)
+        func contains(_ child: AnyObject) throws -> Bool {
+            let type = CFGetTypeID(child)
+            guard type == CFDictionaryGetTypeID() || type == CFArrayGetTypeID() else { return false }
+            return try containsUnicodeNames(child, depth: depth - 1)
+        }
+        if type == CFDictionaryGetTypeID() {
+            let dictionary = unsafeBitCast(object as! NSDictionary, to: CFDictionary.self)
+            var keys = [UnsafeRawPointer?](repeating: nil, count: CFDictionaryGetCount(dictionary))
+            var values = keys
+            CFDictionaryGetKeysAndValues(dictionary, &keys, &values)
+            for index in keys.indices {
+                let key = Unmanaged<AnyObject>.fromOpaque(keys[index]!).takeUnretainedValue()
+                guard CFGetTypeID(key) == CFStringGetTypeID() else { throw JSONError.invalidObjectType }
+                let string = unsafeBitCast(key as! NSString, to: CFString.self)
+                if CFStringGetCStringPtr(string, CFStringBuiltInEncodings.ASCII.rawValue) == nil {
+                    guard let name = key as? String else { throw JSONError.invalidObjectType }
+                    if name.utf8.contains(where: { $0 >= 128 }) { return true }
+                }
+                let item = Unmanaged<AnyObject>.fromOpaque(values[index]!).takeUnretainedValue()
+                if try contains(item) { return true }
+            }
+        } else if type == CFArrayGetTypeID() {
+            let array = unsafeBitCast(object as! NSArray, to: CFArray.self)
+            for index in 0..<CFArrayGetCount(array) {
+                let item = Unmanaged<AnyObject>.fromOpaque(CFArrayGetValueAtIndex(array, index)).takeUnretainedValue()
+                if try contains(item) { return true }
+            }
         }
         return false
     }
@@ -201,7 +238,7 @@ enum JSONSerializationSupport {
             else if prefix[0] == 0 && prefix[2] == 0 { encoding = .utf16BigEndian }
             else if prefix[1] == 0 && prefix[3] == 0 { encoding = .utf16LittleEndian }
         }
-        if encoding == .utf8 { return Data(data.dropFirst(skip)) }
+        if encoding == .utf8 { return skip == 0 ? data : Data(data.dropFirst(skip)) }
         guard let text = String(data: data.dropFirst(skip), encoding: encoding) else { throw JSONError.invalidObjectType }
         return Data(text.utf8)
     }

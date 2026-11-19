@@ -52,6 +52,15 @@ extension NSDictionary {
         #endif
     }
 
+    func shallowMutableCopy() -> NSMutableDictionary {
+        let result = NSMutableDictionary(capacity: count)
+        for key in allKeys {
+            guard let name = key as? String, let value = jsonObject(forKey: key) else { continue }
+            result.setObject(value, forKey: jsonObjectKey(name))
+        }
+        return result
+    }
+
     func deepMutableCopy() -> NSMutableDictionary {
         let result = NSMutableDictionary()
         for key in allKeys {

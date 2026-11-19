@@ -298,6 +298,40 @@ struct GenerationJSONTests {
 
 
 struct JSONSerializationLiteralKeyTests {
+
+
+    @Test func shallowCopiesKeepNestedUnicodeKeysAndReferences() throws {
+        let source = try GenerationJSON.read(#"{"edit":[{"é":1,"e\u0301":2}],"keep":[{"é":3,"e\u0301":4}]}"#)
+        let element = try JSONElement(any: source)
+        let keep = try element.evaluate(pointer: JSONPointer(string: "/keep")).rawValue as AnyObject
+        let patch = JSONPatch(operations: [
+            .replace(path: try JSONPointer(string: "/edit/0/é"), value: JSONElement(5)),
+            .remove(path: try JSONPointer(string: "/edit/0/e\u{0301}"))
+        ])
+        let result = try patch.apply(to: source)
+        #expect(try GenerationJSON(result) == .dictionary([
+            ("edit", .array([.dictionary([("é", .number(5))])])),
+            ("keep", .array([.dictionary([("é", .number(3)), ("e\u{0301}", .number(4))])]))
+        ]))
+        #expect(try GenerationJSON(source) == GenerationJSON.parse(#"{"edit":[{"é":1,"e\u0301":2}],"keep":[{"é":3,"e\u0301":4}]}"#))
+        let unchanged = try JSONElement(any: result).evaluate(pointer: JSONPointer(string: "/keep")).rawValue as AnyObject
+        #expect(unchanged === keep)
+        let root = try GenerationJSON.read(#"[[{"é":1,"e\u0301":2}]]"#)
+        let arrayPatch = JSONPatch(operations: [.replace(
+            path: try JSONPointer(string: "/0/0/é"), value: JSONElement(6))])
+        #expect(try GenerationJSON(arrayPatch.apply(to: root)) == .array([
+            .array([.dictionary([("é", .number(6)), ("e\u{0301}", .number(2))])])
+        ]))
+    }
+
+    @Test func asciiCanonicalEquivalentNamesCannotBypassProtection() throws {
+        let json = #"{"K":1,"\u212a":2}"#
+        let expected = GenerationJSON.dictionary([("K", .number(1)), ("\u{212a}", .number(2))])
+        let raw = try JSONSerializationSupport.objectPreservingKeys(with: Data(json.utf8), options: [])
+        #expect(try GenerationJSON(raw) == expected)
+        let bytes = try JSONSerializationSupport.dataPreservingKeys(with: raw, options: [])
+        #expect(try GenerationJSON(FixtureJSON.read(bytes)) == expected)
+    }
     private let json = #"{"é":true,"e\u0301":9007199254740993,"nested":[{"é":1,"é":2}],"é/":"quote \" : é"}"#
     private var expected: GenerationJSON {
         .dictionary([
